@@ -5,10 +5,6 @@ authentication happens on the proxy, before the player ever touches a backend.
 
 > Portuguese version: [README_PT.md](README_PT.md)
 
-> The product name is **ArcherLogin**. The Java package (`com.yastro.login`), the
-> table (`yastrologin_accounts`) and the jar (`yAstroLogin.jar`) keep the old internal
-> name on purpose, renaming would break existing databases and installs.
-
 ## Why it exists
 
 Networks that accept offline players run their backends with `online-mode=false`. In
