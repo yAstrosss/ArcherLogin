@@ -25,10 +25,14 @@ established **on the proxy**:
   forwarding is refused by the backend.
 
 **Mandatory assumption (not optional):** the backend port **must only be
-reachable by the proxy**. Because the backend is offline, anyone who manages to connect
-**directly** to it (skipping the proxy) joins as **any name**, with no password. There is no
-extra cryptographic gate between proxy and backend, **the firewall is the only barrier**
-against direct connection.
+reachable by the proxy**. Modern forwarding's HMAC (signed with the `forwarding-secret`)
+**is** a real cryptographic gate — a direct connection that cannot produce a valid
+signature is refused by the backend — but it is a **shared-secret** gate that **fails
+open**: if the secret leaks (git, logs, backups, a compromised plugin) or a backend does
+not enforce modern forwarding, anyone who can reach the port joins as **any name**, with no
+password and no Mojang check. The firewall is the barrier that does **not** depend on the
+secret staying secret, which is why it ranks first. Run **both**: the secret gates the
+proxy→backend channel, the firewall makes a leaked secret useless to an outside attacker.
 
 - **Block the backend port at the firewall** for every IP that is not the proxy's,
   and/or **bind the backend on a private network** (`server-ip` on an internal LAN / loopback
@@ -178,7 +182,7 @@ admin's name while verification is blind.
 - [ ] Does any client channel/input grant privilege? (no)
 - [ ] Does a Mojang 429/error downgrade a premium name (even one never seen)? (no, with `deny`; already-seen is protected even with `offline`)
 - [ ] Does name-based lockout allow griefing? (no; per IP + per account WITH an exemption for the victim's good IP)
-- [ ] Is the offline backend protected from direct connection? (**only** by the firewall/private bind, a deploy requirement, §1)
+- [ ] Is the offline backend protected from direct connection? (by modern-forwarding HMAC — a shared secret that fails open if leaked/misconfigured — **plus** the firewall/private bind, which does not depend on the secret; a deploy requirement, §1)
 - [ ] Does the password leak in the normal flow (limbo)? (no; captured by onChat, outside the command pipeline)
 - [ ] Does a password typed by mistake on a backend leak in the log? (no; args masked by the proxy)
 - [ ] Does the admin password leak as an argument? (no; `/passadmin` only from the proxy console)
