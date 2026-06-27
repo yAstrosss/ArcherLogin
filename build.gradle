@@ -1,0 +1,46 @@
+// yAstroLogin / ArcherLogin, sistema de login para Minecraft 1.21.11 (Java 21).
+// Concorrente livre do nLogin. Prioridade: segurança e qualidade.
+//
+// Arquitetura proxy-cêntrica: auth toda no Velocity + limbo (LimboAPI); backends sem plugin.
+// Módulos:
+// common, código puro Java compartilhado (protocolo, cliente Mojang).
+// auth-core, núcleo de auth agnóstico de plataforma (hash, storage, sessão, throttle, e-mail).
+// proxy, plugin Velocity (auth + limbo). É o jar shippável.
+
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '9.0.0' apply false
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    group = 'com.yastro'
+    version = '1.8.0'
+
+    repositories {
+        mavenCentral()
+        maven { url = uri('https://repo.papermc.io/repository/maven-public/') }
+        maven { url = uri('https://oss.sonatype.org/content/repositories/snapshots/') }
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = 21
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+}
+
+// O projeto raiz não tem código. Sem isto o plugin 'java' do root gera um jar vazio
+// (~1KB) que polui build/libs e pode ser deployado por engano no lugar do jar real.
+// O artefato shippável é o shadowJar do :proxy.
+tasks.named('jar') { enabled = false }

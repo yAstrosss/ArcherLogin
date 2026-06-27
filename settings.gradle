@@ -1,0 +1,5 @@
+rootProject.name = 'ArcherLogin'
+
+include 'common'
+include 'auth-core'
+include 'proxy'

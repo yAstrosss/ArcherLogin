@@ -1,0 +1,38 @@
+// Jar FINO->GORDO do plugin Velocity (yAstroLogin). velocity-plugin.json é gerado pelo
+// annotationProcessor a partir da anotação @Plugin. O proxy é o ARTEFATO deployável:
+// shada auth-core/common + libs puras (JDBC/Hikari/Argon2/bcrypt). velocity-api e
+// limboapi são compileOnly (providos em runtime pelo proxy e pelo plugin LimboAPI).
+plugins {
+    id 'com.gradleup.shadow'
+}
+
+repositories {
+    maven { url = uri('https://maven.elytrium.net/repo/') }
+}
+
+dependencies {
+    compileOnly 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
+    annotationProcessor 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
+
+    compileOnly 'net.elytrium.limboapi:api:1.1.27'
+
+    implementation project(':auth-core')
+    implementation project(':common')
+    implementation 'org.yaml:snakeyaml:2.5'
+
+    testImplementation platform('org.junit:junit-bom:6.0.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // velocity-api é compileOnly (provido em runtime pelo proxy); o teste da API pública de
+    // eventos (api.event.*) precisa dela + Adventure (transitivo) no classpath de teste.
+    testImplementation 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
+}
+
+shadowJar {
+    archiveBaseName = 'yAstroLogin'
+    archiveClassifier = ''
+    archiveVersion = ''
+    relocate 'org.yaml.snakeyaml', 'com.yastro.login.lib.snakeyaml'
+}
+
+build.dependsOn shadowJar

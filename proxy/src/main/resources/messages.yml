@@ -1,0 +1,80 @@
+# ArcherLogin, mensagens (cores legado com '&'). Placeholders: %min% %max% %seconds% %email%
+# Edite à vontade; chaves ausentes caem no default empacotado.
+# prefix vazio: mensagens chegam ao jogador simples, só com cor (sem tag de plugin).
+prefix: ""
+
+register:
+  usage: "&cUse: /register <senha> <confirmar senha>"
+  mismatch: "&cAs senhas não conferem."
+  too-short: "&cA senha precisa ter ao menos %min% caracteres."
+  too-long: "&cA senha é muito longa (máximo 72 bytes)."
+  username-as-password: "&cA senha não pode ser igual ao seu nick."
+  already: "&eEssa conta já está registrada. Use /login."
+  success: "&aRegistrado com sucesso! Bem-vindo(a)."
+  ip-limit: "&cLimite de contas por IP atingido (máximo %max%)."
+
+login:
+  usage: "&cUse: /login <senha>"
+  not-registered: "&eConta não registrada. Use /register."
+  wrong: "&cSenha incorreta."
+  success: "&aLogin efetuado! Bom jogo."
+  uuid-mismatch: "&cEste nick está registrado com outra grafia. Entre exatamente como se registrou."
+  too-many: "&cMuitas tentativas. Aguarde %seconds%s."
+  timeout: "&cTempo de login esgotado. Reconecte e use /login."
+  processing: "&eAguarde, ainda processando sua tentativa anterior."
+
+changepass:
+  enter-current: "&eDigite sua senha ATUAL no chat:"
+  enter-new: "&eAgora digite a NOVA senha no chat:"
+  wrong: "&cSenha atual incorreta."
+  success: "&aSenha alterada com sucesso."
+  not-registered: "&cVocê não tem conta registrada."
+  unavailable: "&cTroca de senha indisponível agora. Tente já já."
+
+logout:
+  success: "&aVocê saiu. Reconecte para jogar."
+  not-auth: "&cVocê não está autenticado."
+
+guard:
+  locked: "&cVocê precisa se autenticar primeiro."
+
+email:
+  disabled: "&cO recurso de e-mail está desativado neste servidor."
+  invalid: "&cEndereço de e-mail inválido."
+  code-sent: "&aCódigo enviado ao seu e-mail. Confirme com &f/email <código>"
+  cooldown: "&eAguarde um pouco antes de pedir outro código."
+  send-failed: "&cNão consegui enviar o e-mail. Tente mais tarde."
+  code-invalid: "&cCódigo inválido ou expirado."
+  linked: "&aE-mail vinculado com sucesso: &f%email%"
+  status-linked: "&aE-mail vinculado: &f%email%"
+  status-none: "&eNenhum e-mail vinculado. Use &f/email <endereço>"
+  usage: "&cUse: &f/email <endereço>&c para vincular, ou &f/email <código>&c para confirmar."
+  subject: "Código de verificação - ArcherLogin"
+  body-link: "Seu código de vínculo é: %code%\nExpira em %minutes% minutos. Se não foi você, ignore este e-mail."
+  body-recover: "Seu código de recuperação é: %code%\nExpira em %minutes% minutos. No jogo, use: /recuperar %code% <nova senha>"
+
+recover:
+  neutral: "&aSe existir uma conta com e-mail vinculado, um código foi enviado. Depois use &f/recuperar <código> <nova senha>"
+  use-login-screen: "&ePara redefinir sua senha com segurança, use &f/sair&e e depois &f/recuperar&e na tela de login."
+  usage: "&cUse: &f/recuperar&c para receber um código, depois &f/recuperar <código> <nova senha>"
+  success: "&aSenha redefinida! Entre com &f/login <nova senha>"
+
+admin:
+  not-found: "&cConta não encontrada: %name%"
+  passadmin:
+    usage: "&7Uso (console): /passadmin <nick> <nova senha>"
+    console-only: "&cComando disponível apenas pelo console do proxy."
+    success: "&aSenha de %name% alterada."
+
+error:
+  internal: "&cErro interno. Tente novamente em instantes."
+  busy: "&cAutenticação ocupada no momento. Tente de novo em instantes."
+
+title:
+  register: "&6Registre-se"
+  register-sub: "&7use /register <senha> <senha>"
+  login: "&6Faça login"
+  login-sub: "&7use /login <senha>"
+  changepass: "&6Trocar senha"
+  changepass-sub: "&7siga as instruções no chat"
+  lobby-unavailable: "&cLobby indisponível, tente já já."

@@ -1,0 +1,255 @@
+package com.yastro.login.authcore.storage;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Optional;
+
+import com.yastro.login.common.AccountKey;
+
+/**
+ * Implementação JDBC compartilhada por SQLite e MySQL. Toda query usa
+ * {@link PreparedStatement} (sem SQL injection). As subclasses fornecem a conexão
+ * ({@link #exec}) e o DDL específico do dialeto ({@link #createSchema}).
+ */
+public abstract class JdbcStorage implements AccountStorage, SessionStorage {
+
+    protected static final String TABLE = "yastrologin_accounts";
+    protected static final String SESSION_TABLE = "yastrologin_sessions";
+
+    @FunctionalInterface
+    protected interface ConnFn<T> {
+        T apply(Connection c) throws SQLException;
+    }
+
+    /** Empresta uma conexão para a função e devolve/fecha conforme a impl. */
+    protected abstract <T> T exec(ConnFn<T> fn) throws SQLException;
+
+    /** DDL específico do dialeto (tipos diferem entre SQLite e MySQL). */
+    protected abstract void createSchema(Connection c) throws SQLException;
+
+    /**
+     * SQL de upsert ATÔMICO da sessão, específico do dialeto. Deve ter exatamente 3
+     * parâmetros na ordem (name_lower, token_hash, expires_at). O upsert atômico
+     * (ON CONFLICT / ON DUPLICATE KEY) evita a race de PK duplicada do antigo
+     * UPDATE-senão-INSERT quando dois backends gravam a mesma sessão no MySQL.
+     */
+    protected abstract String upsertSessionSql();
+
+    protected void init() throws SQLException {
+        exec(c -> {
+            createSchema(c);
+            return null;
+        });
+    }
+
+    @Override
+    public boolean isRegistered(String name) throws SQLException {
+        String key = AccountKey.normalize(name);
+        return exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT 1 FROM " + TABLE + " WHERE name_lower = ?")) {
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next();
+                }
+            }
+        });
+    }
+
+    @Override
+    public Optional<Account> find(String name) throws SQLException {
+        String key = AccountKey.normalize(name);
+        return exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT name, uuid, password_hash, email, reg_ip, last_ip, premium, "
+                            + "registered_at, last_login FROM " + TABLE + " WHERE name_lower = ?")) {
+                ps.setString(1, key);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new Account(
+                            rs.getString("name"),
+                            rs.getString("uuid"),
+                            rs.getString("password_hash"),
+                            rs.getString("email"),
+                            rs.getString("reg_ip"),
+                            rs.getString("last_ip"),
+                            rs.getInt("premium") != 0,
+                            rs.getLong("registered_at"),
+                            rs.getLong("last_login")));
+                }
+            }
+        });
+    }
+
+    @Override
+    public void register(Account a) throws SQLException {
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO " + TABLE + " (name_lower, name, uuid, password_hash, email, "
+                            + "reg_ip, last_ip, premium, registered_at, last_login) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                ps.setString(1, AccountKey.normalize(a.name()));
+                ps.setString(2, a.name());
+                ps.setString(3, a.uuid());
+                ps.setString(4, a.passwordHash());
+                ps.setString(5, a.email());
+                ps.setString(6, a.regIp());
+                ps.setString(7, a.lastIp());
+                ps.setInt(8, a.premium() ? 1 : 0);
+                ps.setLong(9, a.registeredAt());
+                ps.setLong(10, a.lastLogin());
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void updatePassword(String name, String newHash) throws SQLException {
+        String key = AccountKey.normalize(name);
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE " + TABLE + " SET password_hash = ? WHERE name_lower = ?")) {
+                ps.setString(1, newHash);
+                ps.setString(2, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void touchLogin(String name, String ip, long when) throws SQLException {
+        String key = AccountKey.normalize(name);
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE " + TABLE + " SET last_ip = ?, last_login = ? WHERE name_lower = ?")) {
+                ps.setString(1, ip);
+                ps.setLong(2, when);
+                ps.setString(3, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void setPremium(String name, boolean premium) throws SQLException {
+        String key = AccountKey.normalize(name);
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE " + TABLE + " SET premium = ? WHERE name_lower = ?")) {
+                ps.setInt(1, premium ? 1 : 0);
+                ps.setString(2, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void setEmail(String name, String email) throws SQLException {
+        String key = AccountKey.normalize(name);
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "UPDATE " + TABLE + " SET email = ? WHERE name_lower = ?")) {
+                ps.setString(1, email);
+                ps.setString(2, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void delete(String name) throws SQLException {
+        String key = AccountKey.normalize(name);
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + TABLE + " WHERE name_lower = ?")) {
+                ps.setString(1, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public int countByRegIp(String ip) throws SQLException {
+        if (ip == null) {
+            return 0;
+        }
+        return exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT COUNT(*) FROM " + TABLE + " WHERE reg_ip = ?")) {
+                ps.setString(1, ip);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getInt(1) : 0;
+                }
+            }
+        });
+    }
+
+    // ---- SessionStorage -----------------------------------------------------
+
+    @Override
+    public void upsertSession(String key, byte[] tokenHash, long expiresAt) throws SQLException {
+        // Upsert ATÔMICO de dialeto (ON CONFLICT/ON DUPLICATE KEY). O antigo
+        // UPDATE-senão-INSERT racea no MySQL multi-backend: dois open() concorrentes
+        // da mesma chave nova veem UPDATE=0 e ambos tentam INSERT -> a 2ª toma erro de
+        // PK duplicada e a sessão se perde. Ordem dos params: name_lower, hash, exp.
+        final String sql = upsertSessionSql();
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, key);
+                ps.setBytes(2, tokenHash);
+                ps.setLong(3, expiresAt);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public byte[] findSessionHash(String key, long now) throws SQLException {
+        return exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT token_hash FROM " + SESSION_TABLE
+                            + " WHERE name_lower = ? AND expires_at > ?")) {
+                ps.setString(1, key);
+                ps.setLong(2, now);
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next() ? rs.getBytes(1) : null;
+                }
+            }
+        });
+    }
+
+    @Override
+    public void removeSession(String key) throws SQLException {
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + SESSION_TABLE + " WHERE name_lower = ?")) {
+                ps.setString(1, key);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void purgeSessions(long now) throws SQLException {
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + SESSION_TABLE + " WHERE expires_at <= ?")) {
+                ps.setLong(1, now);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+}
