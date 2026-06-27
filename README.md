@@ -25,11 +25,6 @@ someone else's name, including admins. ArcherLogin closes that gap on the proxy.
 - **Cracked (offline):** password register/login, typed **inside the limbo**, they
   never pass through the backend chat or console.
 
-> **The number-one barrier is the backend firewall.** Because backends run offline,
-> their port **must** be unreachable from the internet (firewall or private-network
-> bind), it is the **only** defense against someone connecting straight to a backend,
-> bypassing the proxy (whoever gets through joins as any name). See
-> [SECURITY.md](SECURITY.md) and [SETUP.md](SETUP.md).
 
 ## Security highlights
 
