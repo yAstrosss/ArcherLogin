@@ -114,7 +114,8 @@ admin's name while verification is blind.
 - **Per-IP limit** (`ip-limit`): cap on accounts registered per IP
   (`ip-limit-max-accounts`, with configurable bypass, e.g. `127.0.0.1`), blocking the
   mass creation of fake accounts/bots.
-- **Forensic log** (`diagnostic`): a rotating trail in `diagnostic.log` with
+- **Forensic log** (`diagnostic`): one file per boot under `logs/` (e.g.
+  `logs/diagnostic-<date>_<time>.log`, the last 30 are kept) with
   `[FLOOD]/[LOGIN_FAIL]/[THROTTLE]/[PREMIUM_FAIL]/[REGISTER_DENY]` events for
   post-incident forensics (not an active defense, an auditable record).
 
@@ -151,7 +152,7 @@ admin's name while verification is blind.
   to start than to let everyone in without auth). With the limbo unavailable, cracked
   connections are **disconnected**, not let through.
 - **SQL:** 100% `PreparedStatement`, off the proxy thread. SQLite (file
-  `accounts.db`, single backend) or MySQL/MariaDB via a HikariCP pool (multiple backends).
+  `database/accounts.db`, single backend) or MySQL/MariaDB via a HikariCP pool (multiple backends).
 
 ## 7. Known limitations / roadmap (declared, not hidden)
 
