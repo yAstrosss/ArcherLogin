@@ -50,7 +50,7 @@ brecha no proxy.
 | Anti-bruteforce | Lockout **por IP** + **por conta** (com isenção do último IP-bom da vítima -> sem griefing) |
 | Limite de contas por IP | `ip-limit` configurável (anti contas-falsas/bots), com bypass |
 | Recuperação/vínculo por e-mail | Código por SMTP (opcional) |
-| Log forense | Um arquivo por boot em `logs/diagnostic-<data>_<hora>.log` (mantém os últimos 30) com sinais FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL |
+| Log forense | Um arquivo por boot em `logs/diagnostic-<data>_<hora>.log` (mantém os últimos 30) com sinais FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL / BAD_NICK / IP_COLLAPSE |
 | Vazamento em tela compartilhada | Args de `login`/`register` digitados por engano num backend são **mascarados** antes de chegar lá |
 | SQL | 100% `PreparedStatement` (sem injection), fora da thread principal |
 

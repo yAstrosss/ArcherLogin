@@ -40,7 +40,7 @@ someone else's name, including admins. ArcherLogin closes that gap on the proxy.
 | Anti-bruteforce | Lockout **per IP** + **per account** (victim's last good IP exempt -> no griefing) |
 | Per-IP account limit | Configurable `ip-limit` (anti fake-accounts/bots), with bypass |
 | E-mail recovery / linking | SMTP code (optional) |
-| Forensic log | One file per boot at `logs/diagnostic-<date>_<time>.log` (keeps the last 30) with FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL signals |
+| Forensic log | One file per boot at `logs/diagnostic-<date>_<time>.log` (keeps the last 30) with FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL / BAD_NICK / IP_COLLAPSE signals |
 | Screen-share leak | Args of `login`/`register` typed by mistake on a backend are **masked** before they get there |
 | SQL | 100% `PreparedStatement` (no injection), off the main thread |
 
