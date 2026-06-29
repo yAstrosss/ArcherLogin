@@ -54,7 +54,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
         id = "archerlogin",
         name = "ArcherLogin",
-        version = "1.8.1",
+        version = BuildConstants.VERSION,
         description = "Auth proxy-cêntrica (Velocity + limbo). Original auto-login; cracked no limbo.",
         authors = {"yAstro"},
         dependencies = {@Dependency(id = "limboapi")}

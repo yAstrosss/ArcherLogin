@@ -10,6 +10,18 @@ repositories {
     maven { url = uri('https://maven.elytrium.net/repo/') }
 }
 
+// Fonte única da versão: gera BuildConstants.java a partir de project.version (vinda do
+// build.gradle raiz) e injeta como source. O @Plugin referencia BuildConstants.VERSION,
+// então a versão do plugin nunca mais sai de sincronia com o build/o release.
+def generateTemplates = tasks.register('generateTemplates', Copy) {
+    def props = ['version': project.version.toString()]
+    inputs.properties(props)
+    from('src/main/templates')
+    into(layout.buildDirectory.dir('generated/sources/templates'))
+    expand(props)
+}
+sourceSets.main.java.srcDir(generateTemplates)
+
 dependencies {
     compileOnly 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
     annotationProcessor 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
