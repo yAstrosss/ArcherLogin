@@ -61,6 +61,9 @@ import java.util.concurrent.TimeUnit;
 )
 public final class YAstroLoginProxy {
 
+    /** Quantos logs forenses por-boot manter em logs/ (poda os mais antigos no boot). */
+    private static final int DIAGNOSTIC_LOG_RETAIN = 30;
+
     private final ProxyServer server;
     private final Logger logger;
     private final Path dataDirectory;
@@ -92,15 +95,18 @@ public final class YAstroLoginProxy {
 
     @Subscribe
     public void onInit(ProxyInitializeEvent event) {
+        // Cria database/ + logs/ e migra o layout antigo (arquivos soltos na raiz) antes de
+        // abrir o banco/ler o registro premium.
+        PluginLayout layout = PluginLayout.prepare(dataDirectory);
         this.config = ProxyConfig.load(dataDirectory);
-        this.diagnostic = new DiagnosticLog(dataDirectory, config.diagnosticEnabled, 5L * 1024 * 1024);
+        this.diagnostic = new DiagnosticLog(layout.logsDir(), config.diagnosticEnabled, DIAGNOSTIC_LOG_RETAIN);
         this.floodCounter = new FloodCounter(config.diagnosticFloodPerMin);
         // Aviso de IP-colapsado: muitos nicks distintos do mesmo IP = proxy-protocol provavelmente
         // off atras de um frontend. So WARN (cooldown 5min), nao bloqueia, bloquear puniria NAT legitimo.
         this.collapsedIp = new CollapsedIpDetector(
                 8, 60_000L, 5L * 60_000L, config.ipLimitBypass,
                 msg -> { logger.warn(msg); diagnostic.signal("IP_COLLAPSE", msg); });
-        this.premiumRegistry = PremiumRegistry.load(dataDirectory);
+        this.premiumRegistry = PremiumRegistry.load(layout.databaseDir());
 
         if (config.allowCrackedOnPremiumNicks) {
             logger.warn("allow-cracked-on-premium-nicks=true: nicks PREMIUM entram em offline-mode "
@@ -126,7 +132,7 @@ public final class YAstroLoginProxy {
         // Banco: abre a conexão (prova de conectividade). Falha não derruba o proxy, sem banco a auth cairá fail-closed; aqui só logamos.
         AuthConfig authConfig = config.authConfig();
         try {
-            this.storage = StorageFactory.create(authConfig, dataDirectory);
+            this.storage = StorageFactory.create(authConfig, layout.databaseDir());
         } catch (Exception e) {
             logger.error("ArcherLogin: FALHA ao abrir o banco (type={}). Auth ficará indisponível "
                     + "até o banco voltar.", authConfig.dbType, e);

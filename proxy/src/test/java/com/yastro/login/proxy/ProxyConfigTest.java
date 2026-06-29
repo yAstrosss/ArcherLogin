@@ -107,6 +107,23 @@ class ProxyConfigTest {
     }
 
     @Test
+    void preservesNonAsciiValueAcrossReboots(@TempDir Path dir) throws Exception {
+        // valor com acento (senha/remetente): write UTF-8 + read UTF-8 tem que casar e ser estável
+        Path file = dir.resolve("config.properties");
+        java.nio.file.Files.writeString(file,
+            "db-password=senhâ123\nemail-smtp-from=Açaí Server\n",
+            java.nio.charset.StandardCharsets.UTF_8);
+        ProxyConfig.load(dir);            // 1º boot: renderiza o template (reescreve)
+        ProxyConfig.load(dir);            // 2º boot: relê o que escreveu
+        java.util.Properties after = new java.util.Properties();
+        try (var r = java.nio.file.Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
+            after.load(r);
+        }
+        assertEquals("senhâ123", after.getProperty("db-password"));
+        assertEquals("Açaí Server", after.getProperty("email-smtp-from"));
+    }
+
+    @Test
     void mergesMissingKeysIntoExistingConfig(@TempDir Path dir) throws Exception {
         // config "antigo": tem um valor custom mas faltam as chaves novas
         Path file = dir.resolve("config.properties");

@@ -6,25 +6,55 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Stream;
 
-/** Log forense rotativo (1 arquivo + .1 ao passar de maxBytes). Thread-safe. */
+/**
+ * Log forense. Gera um arquivo NOVO por boot do proxy em
+ * {@code logs/diagnostic-<data>_<hora>.log}; no boot poda os antigos e mantém só os
+ * {@code retain} mais recentes. Thread-safe (escrita serializada).
+ */
 public final class DiagnosticLog {
+
+    // sem ':' no padrão: ':' é ilegal em nome de arquivo no Windows
+    private static final DateTimeFormatter STAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final String PREFIX = "diagnostic-";
+    private static final String SUFFIX = ".log";
+
     private final Path file;
-    private final Path rolled;
-    private final long maxBytes;
     private final boolean enabled;
     private final Object lock = new Object();
-    private long written = -1L; // tamanho atual do arquivo em memória (-1 = ainda não medido)
 
-    public DiagnosticLog(Path dataDirectory, boolean enabled, long maxBytes) {
-        this.file = dataDirectory.resolve("diagnostic.log");
-        this.rolled = dataDirectory.resolve("diagnostic.log.1");
-        this.maxBytes = maxBytes;
+    public DiagnosticLog(Path logsDirectory, boolean enabled, int retain) {
         this.enabled = enabled;
+        if (!enabled) {
+            this.file = null;
+            return;
+        }
+        prune(logsDirectory, retain);
+        this.file = logsDirectory.resolve(uniqueName(logsDirectory));
+    }
+
+    /** Nome do arquivo deste boot; desambigua com sufixo {@code _N} se dois boots
+     * caírem no mesmo segundo (mesmo timestamp). */
+    private static String uniqueName(Path dir) {
+        String base = PREFIX + LocalDateTime.now().format(STAMP);
+        if (!Files.exists(dir.resolve(base + SUFFIX))) {
+            return base + SUFFIX;
+        }
+        for (int i = 2; ; i++) {
+            String name = base + "_" + i + SUFFIX;
+            if (!Files.exists(dir.resolve(name))) {
+                return name;
+            }
+        }
     }
 
     public void signal(String tag, String detail) {
-        if (!enabled) {
+        if (!enabled || file == null) {
             return;
         }
         String line = "[" + LocalDateTime.now() + "] [" + sanitize(tag) + "] " + sanitize(detail)
@@ -32,19 +62,36 @@ public final class DiagnosticLog {
         byte[] bytes = line.getBytes(StandardCharsets.UTF_8);
         synchronized (lock) {
             try {
-                if (written < 0) { // mede o arquivo UMA vez; depois mantém o tamanho em memória
-                    written = Files.exists(file) ? Files.size(file) : 0L;
-                }
-                if (written > 0 && written + bytes.length > maxBytes) {
-                    Files.deleteIfExists(rolled);
-                    Files.move(file, rolled);
-                    written = 0L;
-                }
                 Files.write(file, bytes, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                written += bytes.length;
             } catch (IOException ignored) {
                 // forense é best-effort: nunca quebra o fluxo de auth
-                written = -1L; // erro: re-mede o tamanho na próxima escrita
+            }
+        }
+    }
+
+    /** Mantém só os {@code retain} logs mais recentes (vai criar mais um logo em seguida,
+     * então poda até sobrarem {@code retain-1}). */
+    private static void prune(Path dir, int retain) {
+        if (retain < 1) {
+            return;
+        }
+        List<Path> logs = new ArrayList<>();
+        try (Stream<Path> s = Files.list(dir)) {
+            s.filter(p -> {
+                String n = p.getFileName().toString();
+                return n.startsWith(PREFIX) && n.endsWith(SUFFIX);
+            }).forEach(logs::add);
+        } catch (IOException ignored) {
+            return;
+        }
+        // nome = timestamp largura-fixa -> ordem lexical == ordem cronológica
+        logs.sort(Comparator.comparing(p -> p.getFileName().toString()));
+        int remove = logs.size() - (retain - 1);
+        for (int i = 0; i < remove; i++) {
+            try {
+                Files.deleteIfExists(logs.get(i));
+            } catch (IOException ignored) {
+                // best-effort
             }
         }
     }

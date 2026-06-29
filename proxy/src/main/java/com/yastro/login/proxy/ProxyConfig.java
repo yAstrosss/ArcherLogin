@@ -2,12 +2,17 @@ package com.yastro.login.proxy;
 
 import com.yastro.login.authcore.config.AuthConfig;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.charset.MalformedInputException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -41,45 +46,35 @@ public final class ProxyConfig {
     // ---- Banco (repassado pro AuthConfig) ----
     private final Map<String, Object> authRaw = new HashMap<>();
 
-    private static final String CONFIG_HEADER =
-            "ArcherLogin (proxy). unknown-policy=deny (fail-closed) recomendado. "
-            + "db-type=sqlite (teste 1 proxy) ou mysql (rede real). "
-            + "allow-cracked-on-premium-nicks=true e PERIGOSO: nicks premium viram "
-            + "impersonaveis (entram em offline-mode). Deixe false salvo se sabe o que faz. "
-            + "hash-argon2-* calibram custo/seguranca do hash (pico = nucleos x memory-kib). "
-            + "bruteforce-* = lockout por IP e por CONTA. session-* = nao repedir senha no mesmo IP. "
-            + "ip-limit-* = teto de contas por IP. diagnostic-* = log forense. limbo-*/ui-* = limbo. "
-            + "ATRAS DE FRONTEND TCP (TCPShield/HAProxy/Cloudflare): ligue proxy-protocol=true no "
-            + "velocity.toml E no frontend, senao TODOS os IPs colapsam no IP do frontend e o "
-            + "anti-bruteforce/ip-limit punem jogadores legitimos (o plugin avisa no log se detectar isso). "
-            + "db-password fica em TEXTO PURO: restrinja a permissao do arquivo e NAO versione.";
-
     public static ProxyConfig load(Path dataDirectory) {
         ProxyConfig cfg = new ProxyConfig();
         try {
             Files.createDirectories(dataDirectory);
             Path file = dataDirectory.resolve("config.properties");
             Properties props = new Properties();
-            boolean needsWrite = !Files.exists(file);
-            if (!needsWrite) {
-                try (InputStream in = Files.newInputStream(file)) {
-                    props.load(in);
-                }
+            if (Files.exists(file)) {
+                loadProps(props, file);
             }
-            // Merge: garante que TODA chave default exista no arquivo. Assim um config.properties
-            // antigo ganha as chaves novas no boot (senão o owner não tem como configurá-las, o seedDefaults sozinho só gravaria num arquivo recém-criado).
+            // Merge: garante que TODA chave default exista (config antigo ganha as chaves novas).
             Properties defaults = new Properties();
             seedDefaults(defaults);
             for (String key : defaults.stringPropertyNames()) {
                 if (!props.containsKey(key)) {
                     props.setProperty(key, defaults.getProperty(key));
-                    needsWrite = true;
                 }
             }
-            if (needsWrite) {
-                try (OutputStream out = Files.newOutputStream(file)) {
-                    props.store(out, CONFIG_HEADER);
-                }
+            // Reescreve sempre a partir do template organizado (seções + comentários por chave),
+            // preservando os valores do dono. Só toca o disco se o conteúdo mudou (idempotente).
+            String rendered = renderTemplate(props);
+            String current;
+            try {
+                current = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : null;
+            } catch (IOException malformed) {
+                current = null; // ilegível como UTF-8 (salvo em Latin-1): força a reescrita, conserta
+            }
+            if (!rendered.equals(current)) {
+                Files.writeString(file, rendered, StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
             }
             // reaperta SEMPRE no boot (idempotente), fecha o caso de um config já completo
             // que ficou com permissão larga (db/smtp password em texto puro).
@@ -179,6 +174,198 @@ public final class ProxyConfig {
             }
         }
         return java.util.Set.copyOf(out);
+    }
+
+    /** Lê o config em UTF-8 (mesmo charset do write do template). Se o dono salvou o arquivo
+     * em ISO-8859-1 com acento cru, {@code load(Reader UTF-8)} lança {@link MalformedInputException};
+     * nesse caso relê em Latin-1 e o template reescreve em UTF-8 no fim (auto-conserta o charset).
+     * Crucial: NÃO usar {@code load(InputStream)}, que decodifica SEMPRE em ISO-8859-1 e não casa
+     * com o write UTF-8 (corromperia senha/e-mail não-ASCII a cada boot). */
+    private static void loadProps(Properties props, Path file) throws IOException {
+        try (BufferedReader r = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            props.load(r);
+        } catch (MalformedInputException latin1) {
+            props.clear();
+            try (BufferedReader r = Files.newBufferedReader(file, StandardCharsets.ISO_8859_1)) {
+                props.load(r);
+            }
+        }
+    }
+
+    /** Renderiza o config.properties organizado: cabeçalho, seções e um comentário por chave,
+     * em ordem fixa, com os valores atuais (do dono ou default). Texto válido pra {@link Properties#load}. */
+    private static String renderTemplate(Properties v) {
+        StringBuilder b = new StringBuilder();
+        header(b);
+
+        sec(b, "BANCO DE DADOS",
+                "sqlite = um proxy só (arquivo local em database/accounts.db, recomendado pra começar).",
+                "mysql/mariadb = vários proxies compartilhando as contas; preencha os db-* abaixo.");
+        kv(b, v, "db-type", "sqlite | mysql | mariadb");
+        kv(b, v, "db-host", "(mysql) endereço do banco");
+        kv(b, v, "db-port", "(mysql) porta do banco");
+        kv(b, v, "db-name", "(mysql) nome do schema/database");
+        kv(b, v, "db-user", "(mysql) usuário");
+        kv(b, v, "db-password", "(mysql) senha — TEXTO PURO, não versione este arquivo");
+        kv(b, v, "db-pool-size", "(mysql) conexões no pool");
+
+        sec(b, "SEGURANÇA DE NICK (PREMIUM)",
+                "allow-cracked-on-premium-nicks=true é PERIGOSO: deixa um nick de conta paga entrar",
+                "em offline-mode, virando impersonável. Mantenha false salvo se sabe o que faz.",
+                "unknown-policy=deny (fail-closed): se a Mojang estiver fora e não der pra saber se o",
+                "nick é premium, NEGA em vez de liberar como cracked (mais seguro).");
+        kv(b, v, "allow-cracked-on-premium-nicks", "true = perigoso (veja acima)");
+        kv(b, v, "unknown-policy", "deny | offline");
+
+        sec(b, "LOBBY / LIMBO",
+                "Limbo = mundo-vazio onde o jogador fica preso até logar. Itens aqui são de UX.");
+        kv(b, v, "lobby-server", "nome (no velocity.toml) do servidor pós-login");
+        kv(b, v, "limbo-dimension", "OVERWORLD | THE_NETHER | THE_END");
+        kv(b, v, "limbo-timeout-seconds", "expulsa se não logar nesse tempo (0–600)");
+        kv(b, v, "limbo-hide-players", "esconde outros jogadores no limbo");
+        kv(b, v, "limbo-blindness", "aplica cegueira no limbo");
+
+        sec(b, "HASH DE SENHA (Argon2id)",
+                "Custo do hash. Pico de RAM ≈ parallelism × memory-kib (NÃO multiplica por jogador).",
+                "Baseline OWASP. Subir memory-kib/iterations = mais seguro e mais pesado.");
+        kv(b, v, "hash-argon2-memory-kib", "RAM por hash em KiB (ex.: 19456 = 19 MiB)");
+        kv(b, v, "hash-argon2-iterations", "passagens (custo de tempo)");
+        kv(b, v, "hash-argon2-parallelism", "threads por hash");
+        kv(b, v, "password-min-length", "tamanho mínimo de senha no registro");
+
+        sec(b, "SESSÃO",
+                "Não repede a senha no mesmo IP dentro da janela (conveniência pós-reconnect).");
+        kv(b, v, "session-enabled", "liga/desliga a sessão por IP");
+        kv(b, v, "session-duration-minutes", "duração da sessão");
+
+        sec(b, "ANTI-BRUTEFORCE",
+                "Lockout por IP e por CONTA (barra brute-force distribuído de vários IPs num só nick).");
+        kv(b, v, "bruteforce-max-attempts", "tentativas por IP antes do lockout");
+        kv(b, v, "bruteforce-window-seconds", "janela de contagem das tentativas");
+        kv(b, v, "bruteforce-lockout-seconds", "tempo de bloqueio do IP (segundos)");
+        kv(b, v, "bruteforce-account-max-attempts", "tentativas por CONTA antes do lockout");
+        kv(b, v, "bruteforce-account-lockout-seconds", "tempo de bloqueio da conta (segundos)");
+
+        sec(b, "LIMITE POR IP",
+                "Teto de contas distintas registráveis a partir do mesmo IP (anti-farm de contas).",
+                "ip-limit-bypass: IPs isentos, separados por vírgula (ex.: seu NAT/loopback).");
+        kv(b, v, "ip-limit-enabled", "liga o teto por IP");
+        kv(b, v, "ip-limit-max-accounts", "máx. de contas por IP (1–50)");
+        kv(b, v, "ip-limit-bypass", "IPs isentos, separados por vírgula");
+
+        sec(b, "FILA DE AUTH",
+                "Capacidade da fila do pool que faz hash+queries. Cheia = rejeita flood em vez de crescer.");
+        kv(b, v, "auth-queue-capacity", "tamanho da fila (16–4096)");
+
+        sec(b, "DIAGNÓSTICO (LOG FORENSE)",
+                "Grava eventos de auth em logs/diagnostic-<data>_<hora>.log (um arquivo por boot).");
+        kv(b, v, "diagnostic-enabled", "liga o log forense");
+        kv(b, v, "diagnostic-flood-per-min", "teto de eventos/min antes de marcar flood");
+
+        sec(b, "INTERFACE",
+                "Feedback visual/sonoro no cliente durante o login.");
+        kv(b, v, "language", "idioma das mensagens (ex.: br, en)");
+        kv(b, v, "ui-title", "mostra título na tela");
+        kv(b, v, "ui-action-bar", "mostra texto na action bar");
+        kv(b, v, "ui-sound", "toca som de feedback");
+
+        sec(b, "E-MAIL (/email e /recuperar)",
+                "Vínculo e recuperação de conta por e-mail. Gmail: use uma SENHA DE APP, não a normal.",
+                "Senha em TEXTO PURO: não versione este arquivo.");
+        kv(b, v, "email-enabled", "liga o sistema de e-mail");
+        kv(b, v, "email-smtp-host", "host SMTP (ex.: smtp.gmail.com)");
+        kv(b, v, "email-smtp-port", "porta SMTP (ex.: 587)");
+        kv(b, v, "email-smtp-user", "usuário/login SMTP");
+        kv(b, v, "email-smtp-password", "senha de app SMTP — TEXTO PURO");
+        kv(b, v, "email-smtp-from", "remetente exibido");
+        kv(b, v, "email-smtp-encryption", "tls | ssl | none");
+        kv(b, v, "email-code-ttl-minutes", "validade do código enviado (minutos)");
+
+        extras(b, v);
+        return b.toString();
+    }
+
+    private static void header(StringBuilder b) {
+        b.append("# =====================================================================\n");
+        b.append("#  ArcherLogin — configuração do proxy (Velocity)\n");
+        b.append("# =====================================================================\n");
+        b.append("#  Edite com o servidor DESLIGADO. Linhas com '#' são comentários.\n");
+        b.append("#  Este arquivo é reorganizado automaticamente a cada boot (ordem e\n");
+        b.append("#  comentários), mantendo os SEUS valores.\n");
+        b.append("#  Banco e registro premium ficam em database/. Logs em logs/.\n");
+        b.append("#  Atrás de TCPShield/HAProxy/Cloudflare: ligue proxy-protocol no\n");
+        b.append("#  velocity.toml E no frontend, senão todos os IPs colapsam num só e o\n");
+        b.append("#  anti-bruteforce/ip-limit punem jogadores legítimos.\n");
+        b.append("\n");
+    }
+
+    private static void sec(StringBuilder b, String title, String... desc) {
+        b.append("# ---------------------------------------------------------------------\n");
+        b.append("#  ").append(title).append("\n");
+        for (String d : desc) {
+            b.append("#  ").append(d).append("\n");
+        }
+        b.append("# ---------------------------------------------------------------------\n");
+    }
+
+    private static void kv(StringBuilder b, Properties v, String key, String comment) {
+        b.append("# ").append(comment).append("\n");
+        b.append(key).append("=").append(escape(v.getProperty(key, ""))).append("\n\n");
+    }
+
+    /** Preserva chaves não reconhecidas (config antigo com extras / chaves futuras), não perde. */
+    private static void extras(StringBuilder b, Properties v) {
+        Properties defaults = new Properties();
+        seedDefaults(defaults);
+        List<String> unknown = new ArrayList<>();
+        for (String k : v.stringPropertyNames()) {
+            if (!defaults.containsKey(k)) {
+                unknown.add(k);
+            }
+        }
+        if (unknown.isEmpty()) {
+            return;
+        }
+        Collections.sort(unknown);
+        sec(b, "OUTRAS CHAVES", "Chaves não reconhecidas (preservadas).");
+        for (String k : unknown) {
+            b.append(escapeKey(k)).append("=").append(escape(v.getProperty(k, ""))).append("\n");
+        }
+        b.append("\n");
+    }
+
+    /** Escapa a CHAVE pro formato .properties: separadores ({@code = : espaço}) e
+     * início-de-comentário ({@code # !}) precisam de barra pra sobreviver ao {@link Properties#load}. */
+    private static String escapeKey(String key) {
+        StringBuilder sb = new StringBuilder(key.length());
+        for (int i = 0; i < key.length(); i++) {
+            char c = key.charAt(i);
+            switch (c) {
+                case '\\', '=', ':', '#', '!', ' ' -> sb.append('\\').append(c);
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Escapa o valor pro formato .properties (o que {@link Properties#load} espera ao reler). */
+    private static String escape(String val) {
+        StringBuilder sb = new StringBuilder(val.length());
+        for (int i = 0; i < val.length(); i++) {
+            char c = val.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case ' ' -> sb.append(i == 0 ? "\\ " : " "); // espaço inicial seria descartado pelo load()
+                default -> sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private static void seedDefaults(Properties p) {
