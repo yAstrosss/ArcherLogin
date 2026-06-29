@@ -40,7 +40,7 @@ someone else's name, including admins. ArcherLogin closes that gap on the proxy.
 | Anti-bruteforce | Lockout **per IP** + **per account** (victim's last good IP exempt -> no griefing) |
 | Per-IP account limit | Configurable `ip-limit` (anti fake-accounts/bots), with bypass |
 | E-mail recovery / linking | SMTP code (optional) |
-| Forensic log | Rotating `diagnostic.log` with FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL signals |
+| Forensic log | One file per boot at `logs/diagnostic-<date>_<time>.log` (keeps the last 30) with FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL signals |
 | Screen-share leak | Args of `login`/`register` typed by mistake on a backend are **masked** before they get there |
 | SQL | 100% `PreparedStatement` (no injection), off the main thread |
 
@@ -95,11 +95,30 @@ Output: `proxy/build/libs/yAstroLogin.jar` -> Velocity plugin.
 4. Configure each backend with `online-mode=false` **and block its port in the
    firewall** to anything but the proxy (critical step, see SECURITY.md).
 5. Start the proxy. The config (`plugins/archerlogin/config.properties`) and the SQLite
-   database are created automatically.
+   database (under `plugins/archerlogin/database/`) are created automatically.
 6. A premium account (official launcher) joins without a password. A cracked player
    uses `/register <pass> <pass>` in the limbo.
 
 Full walkthrough and every config key in [SETUP.md](SETUP.md).
+
+## Folder layout
+
+In the plugin folder, only `config.properties` and `messages.yml` live at the root (what
+you edit). Everything else is internal and goes into subfolders, created on first boot:
+
+```
+plugins/archerlogin/
+├── config.properties     # configuration (sections + one comment per key)
+├── messages.yml          # text/language
+├── database/             # internal — do not edit
+│   ├── accounts.db       # SQLite database (+ -wal/-shm in WAL mode)
+│   └── premium-names.txt # premium-nick registry (anti-downgrade, automatic)
+└── logs/                 # one forensic log per boot, keeps the last 30
+    └── diagnostic-2026-06-29_17-48-16.log
+```
+
+Coming from an older version (files loose at the root)? Migration to `database/` and
+`logs/` is **automatic and lossless** on the first 1.8.1 boot.
 
 ## Honest security & limitations
 

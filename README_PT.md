@@ -50,7 +50,7 @@ brecha no proxy.
 | Anti-bruteforce | Lockout **por IP** + **por conta** (com isenção do último IP-bom da vítima -> sem griefing) |
 | Limite de contas por IP | `ip-limit` configurável (anti contas-falsas/bots), com bypass |
 | Recuperação/vínculo por e-mail | Código por SMTP (opcional) |
-| Log forense | `diagnostic.log` rotativo com sinais FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL |
+| Log forense | Um arquivo por boot em `logs/diagnostic-<data>_<hora>.log` (mantém os últimos 30) com sinais FLOOD / LOGIN_FAIL / THROTTLE / REGISTER_DENY / PREMIUM_FAIL |
 | Vazamento em tela compartilhada | Args de `login`/`register` digitados por engano num backend são **mascarados** antes de chegar lá |
 | SQL | 100% `PreparedStatement` (sem injection), fora da thread principal |
 
@@ -104,11 +104,30 @@ Saída: `proxy/build/libs/yAstroLogin.jar` -> plugin Velocity.
 4. Configure cada backend com `online-mode=false` **e bloqueie a porta dele no
    firewall** para tudo que não seja o proxy (passo crítico, veja SECURITY.md).
 5. Inicie o proxy. A config (`plugins/archerlogin/config.properties`) e o banco
-   SQLite são criados sozinhos.
+   SQLite (em `plugins/archerlogin/database/`) são criados sozinhos.
 6. Conta original (launcher oficial) entra sem senha. Conta pirata usa
    `/register <senha> <senha>` no limbo.
 
 Passo a passo completo e todas as chaves de config em [SETUP.md](SETUP.md).
+
+## Estrutura de pastas
+
+Na pasta do plugin, só `config.properties` e `messages.yml` ficam na raiz (o que você
+edita). O resto é interno e fica em subpastas, criadas no primeiro boot:
+
+```
+plugins/archerlogin/
+├── config.properties     # configuração (seções + um comentário por chave)
+├── messages.yml          # textos/idioma
+├── database/             # interno — não edite
+│   ├── accounts.db       # banco SQLite (+ -wal/-shm em modo WAL)
+│   └── premium-names.txt # registro de nicks premium (anti-downgrade, automático)
+└── logs/                 # um log forense por boot, mantém os últimos 30
+    └── diagnostic-2026-06-29_17-48-16.log
+```
+
+Vindo de uma versão antiga (arquivos soltos na raiz)? A migração para `database/` e
+`logs/` é **automática e sem perda** no primeiro boot da 1.8.1.
 
 ## Segurança e limitações honestas
 
