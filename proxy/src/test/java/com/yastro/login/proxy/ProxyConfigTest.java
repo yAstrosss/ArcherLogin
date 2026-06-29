@@ -27,12 +27,9 @@ class ProxyConfigTest {
         assertEquals(2, ac.argonIterations);
         assertEquals(1, ac.argonParallelism);
         assertEquals(8, ac.minPassword);
-        assertTrue(ac.sessionEnabled);
-        assertEquals(5, ac.sessionDurationMinutes);
         assertEquals(5, ac.maxAttempts);
         assertEquals(300, ac.lockoutSeconds);
         assertEquals(10, ac.accountMaxAttempts);
-        assertEquals("br", ac.language);
     }
 
     @Test
@@ -40,13 +37,11 @@ class ProxyConfigTest {
         Path file = dir.resolve("config.properties");
         java.nio.file.Files.writeString(file,
             "hash-argon2-memory-kib=32768\npassword-min-length=12\n"
-            + "session-duration-minutes=30\nbruteforce-max-attempts=3\nlanguage=en\n");
+            + "bruteforce-max-attempts=3\n");
         AuthConfig ac = ProxyConfig.load(dir).authConfig();
         assertEquals(32768, ac.argonMemoryKib);
         assertEquals(12, ac.minPassword);
-        assertEquals(30, ac.sessionDurationMinutes);
         assertEquals(3, ac.maxAttempts);
-        assertEquals("en", ac.language);
     }
 
     @Test
@@ -63,14 +58,6 @@ class ProxyConfigTest {
         ProxyConfig cfg = ProxyConfig.load(dir);
         assertTrue(cfg.diagnosticEnabled);
         assertEquals(100, cfg.diagnosticFloodPerMin);
-    }
-
-    @Test
-    void seedsLimboToggles(@TempDir Path dir) {
-        ProxyConfig.load(dir);
-        ProxyConfig cfg = ProxyConfig.load(dir);
-        assertTrue(cfg.limboHidePlayers);
-        assertFalse(cfg.limboBlindness);
     }
 
     @Test
@@ -142,7 +129,7 @@ class ProxyConfigTest {
         }
         assertTrue(after.containsKey("diagnostic-enabled"));
         assertTrue(after.containsKey("ui-title"));
-        assertTrue(after.containsKey("limbo-hide-players"));
+        assertTrue(after.containsKey("auth-queue-capacity"));
         assertEquals("7", after.getProperty("ip-limit-max-accounts")); // custom intacto
     }
 }

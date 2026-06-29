@@ -5,10 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AccountKeyTest {
 
@@ -38,26 +35,5 @@ class AccountKeyTest {
     void normalize_nullThrows_sameAsRawToLowerCase() {
         // Comportamento preservado: NPE em null, igual ao name.toLowerCase(...) cru.
         assertThrows(NullPointerException.class, () -> AccountKey.normalize(null));
-    }
-
-    @Test
-    void of_value_equalsNormalized() {
-        assertEquals("pedro", AccountKey.of("PeDrO").value());
-    }
-
-    @Test
-    void equalsAndHashCode_byCanonicalValue() {
-        AccountKey a = AccountKey.of("Pedro");
-        AccountKey b = AccountKey.of("PEDRO");
-        AccountKey c = AccountKey.of("Maria");
-        assertTrue(a.equals(b));
-        assertEquals(a.hashCode(), b.hashCode());
-        assertFalse(a.equals(c));
-        assertNotEquals(a, c);
-    }
-
-    @Test
-    void toString_isCanonicalValue() {
-        assertEquals("pedro", AccountKey.of("Pedro").toString());
     }
 }

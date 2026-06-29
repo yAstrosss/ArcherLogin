@@ -221,18 +221,4 @@ public final class PasswordHasher {
         return out;
     }
 
-    /** Normaliza para comparação de prefixo de algoritmo (debug/admin). */
-    public static String algorithmOf(String stored) {
-        if (stored == null) {
-            return "none";
-        }
-        String s = stored.toLowerCase(Locale.ROOT);
-        if (s.startsWith("$argon2id$")) {
-            return "argon2id";
-        }
-        if (s.startsWith("$2")) {
-            return "bcrypt";
-        }
-        return "desconhecido";
-    }
 }

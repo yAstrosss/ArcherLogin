@@ -56,23 +56,11 @@ public final class SqliteStorage extends JdbcStorage {
                 + "premium INTEGER NOT NULL DEFAULT 0,"
                 + "registered_at INTEGER NOT NULL,"
                 + "last_login INTEGER NOT NULL DEFAULT 0)";
-        String sessionDdl = "CREATE TABLE IF NOT EXISTS " + SESSION_TABLE + " ("
-                + "name_lower TEXT PRIMARY KEY,"
-                + "token_hash BLOB NOT NULL,"
-                + "expires_at INTEGER NOT NULL)";
         try (Statement st = c.createStatement()) {
             st.execute(ddl);
             st.execute("CREATE INDEX IF NOT EXISTS idx_" + TABLE + "_regip ON "
                     + TABLE + " (reg_ip)");
-            st.execute(sessionDdl);
         }
-    }
-
-    @Override
-    protected String upsertSessionSql() {
-        return "INSERT INTO " + SESSION_TABLE + " (name_lower, token_hash, expires_at) "
-                + "VALUES (?, ?, ?) ON CONFLICT(name_lower) DO UPDATE SET "
-                + "token_hash = excluded.token_hash, expires_at = excluded.expires_at";
     }
 
     @Override

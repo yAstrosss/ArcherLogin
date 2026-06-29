@@ -19,14 +19,8 @@ public interface AccountStorage extends AutoCloseable {
     /** Atualiza último IP e horário de login. */
     void touchLogin(String name, String ip, long when) throws Exception;
 
-    /** Marca/desmarca a conta como original (auto-login premium). */
-    void setPremium(String name, boolean premium) throws Exception;
-
     /** Define (ou limpa, com null) o e-mail verificado da conta. */
     void setEmail(String name, String email) throws Exception;
-
-    /** Remove a conta (admin). */
-    void delete(String name) throws Exception;
 
     /** Número de contas registradas a partir de um IP (para limite por IP). */
     int countByRegIp(String ip) throws Exception;

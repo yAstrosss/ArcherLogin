@@ -110,7 +110,14 @@ public final class PremiumRegistry {
     /** Flush final + encerra o flusher. Chamar no shutdown do proxy. */
     public void close() {
         flusher.shutdown();
-        compact(); // LOW: reescreve o arquivo a partir do Set (dedup), em vez de só dar append
+        // espera um flush() em voo terminar ANTES do compact: ambos escrevem o mesmo arquivo
+        // (append vs TRUNCATE) e interleavar duplicaria linhas/perderia append no shutdown.
+        try {
+            flusher.awaitTermination(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        compact(); // reescreve o arquivo a partir do Set (dedup), em vez de só dar append
     }
 
     /** Reescreve o arquivo inteiro a partir do Set em memória, remove linhas duplicadas acumuladas. */

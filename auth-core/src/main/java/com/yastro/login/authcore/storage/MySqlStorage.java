@@ -65,26 +65,9 @@ public final class MySqlStorage extends JdbcStorage {
                 + "last_login BIGINT NOT NULL DEFAULT 0,"
                 + "INDEX idx_regip (reg_ip)"
                 + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-        String sessionDdl = "CREATE TABLE IF NOT EXISTS " + SESSION_TABLE + " ("
-                + "name_lower VARCHAR(16) PRIMARY KEY,"
-                // 64 cabe SHA-256 (32B) com folga p/ evolução futura do hash; VARBINARY
-                // truncaria à direita sem erro se um dia o algoritmo crescer.
-                + "token_hash VARBINARY(64) NOT NULL,"
-                + "expires_at BIGINT NOT NULL"
-                + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         try (Statement st = c.createStatement()) {
             st.execute(ddl);
-            st.execute(sessionDdl);
         }
-    }
-
-    @Override
-    protected String upsertSessionSql() {
-        // VALUES() no UPDATE: suportado por MariaDB e MySQL (deprecado mas funcional
-        // no MySQL 8.0.20+). Driver usado = MariaDB, conecta os dois.
-        return "INSERT INTO " + SESSION_TABLE + " (name_lower, token_hash, expires_at) "
-                + "VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE "
-                + "token_hash = VALUES(token_hash), expires_at = VALUES(expires_at)";
     }
 
     @Override

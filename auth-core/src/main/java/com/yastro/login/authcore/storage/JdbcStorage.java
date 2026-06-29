@@ -13,10 +13,9 @@ import com.yastro.login.common.AccountKey;
  * {@link PreparedStatement} (sem SQL injection). As subclasses fornecem a conexão
  * ({@link #exec}) e o DDL específico do dialeto ({@link #createSchema}).
  */
-public abstract class JdbcStorage implements AccountStorage, SessionStorage {
+public abstract class JdbcStorage implements AccountStorage {
 
     protected static final String TABLE = "yastrologin_accounts";
-    protected static final String SESSION_TABLE = "yastrologin_sessions";
 
     @FunctionalInterface
     protected interface ConnFn<T> {
@@ -28,14 +27,6 @@ public abstract class JdbcStorage implements AccountStorage, SessionStorage {
 
     /** DDL específico do dialeto (tipos diferem entre SQLite e MySQL). */
     protected abstract void createSchema(Connection c) throws SQLException;
-
-    /**
-     * SQL de upsert ATÔMICO da sessão, específico do dialeto. Deve ter exatamente 3
-     * parâmetros na ordem (name_lower, token_hash, expires_at). O upsert atômico
-     * (ON CONFLICT / ON DUPLICATE KEY) evita a race de PK duplicada do antigo
-     * UPDATE-senão-INSERT quando dois backends gravam a mesma sessão no MySQL.
-     */
-    protected abstract String upsertSessionSql();
 
     protected void init() throws SQLException {
         exec(c -> {
@@ -138,20 +129,6 @@ public abstract class JdbcStorage implements AccountStorage, SessionStorage {
     }
 
     @Override
-    public void setPremium(String name, boolean premium) throws SQLException {
-        String key = AccountKey.normalize(name);
-        exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "UPDATE " + TABLE + " SET premium = ? WHERE name_lower = ?")) {
-                ps.setInt(1, premium ? 1 : 0);
-                ps.setString(2, key);
-                ps.executeUpdate();
-            }
-            return null;
-        });
-    }
-
-    @Override
     public void setEmail(String name, String email) throws SQLException {
         String key = AccountKey.normalize(name);
         exec(c -> {
@@ -159,19 +136,6 @@ public abstract class JdbcStorage implements AccountStorage, SessionStorage {
                     "UPDATE " + TABLE + " SET email = ? WHERE name_lower = ?")) {
                 ps.setString(1, email);
                 ps.setString(2, key);
-                ps.executeUpdate();
-            }
-            return null;
-        });
-    }
-
-    @Override
-    public void delete(String name) throws SQLException {
-        String key = AccountKey.normalize(name);
-        exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "DELETE FROM " + TABLE + " WHERE name_lower = ?")) {
-                ps.setString(1, key);
                 ps.executeUpdate();
             }
             return null;
@@ -191,65 +155,6 @@ public abstract class JdbcStorage implements AccountStorage, SessionStorage {
                     return rs.next() ? rs.getInt(1) : 0;
                 }
             }
-        });
-    }
-
-    // ---- SessionStorage -----------------------------------------------------
-
-    @Override
-    public void upsertSession(String key, byte[] tokenHash, long expiresAt) throws SQLException {
-        // Upsert ATÔMICO de dialeto (ON CONFLICT/ON DUPLICATE KEY). O antigo
-        // UPDATE-senão-INSERT racea no MySQL multi-backend: dois open() concorrentes
-        // da mesma chave nova veem UPDATE=0 e ambos tentam INSERT -> a 2ª toma erro de
-        // PK duplicada e a sessão se perde. Ordem dos params: name_lower, hash, exp.
-        final String sql = upsertSessionSql();
-        exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(sql)) {
-                ps.setString(1, key);
-                ps.setBytes(2, tokenHash);
-                ps.setLong(3, expiresAt);
-                ps.executeUpdate();
-            }
-            return null;
-        });
-    }
-
-    @Override
-    public byte[] findSessionHash(String key, long now) throws SQLException {
-        return exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT token_hash FROM " + SESSION_TABLE
-                            + " WHERE name_lower = ? AND expires_at > ?")) {
-                ps.setString(1, key);
-                ps.setLong(2, now);
-                try (ResultSet rs = ps.executeQuery()) {
-                    return rs.next() ? rs.getBytes(1) : null;
-                }
-            }
-        });
-    }
-
-    @Override
-    public void removeSession(String key) throws SQLException {
-        exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "DELETE FROM " + SESSION_TABLE + " WHERE name_lower = ?")) {
-                ps.setString(1, key);
-                ps.executeUpdate();
-            }
-            return null;
-        });
-    }
-
-    @Override
-    public void purgeSessions(long now) throws SQLException {
-        exec(c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "DELETE FROM " + SESSION_TABLE + " WHERE expires_at <= ?")) {
-                ps.setLong(1, now);
-                ps.executeUpdate();
-            }
-            return null;
         });
     }
 }

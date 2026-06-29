@@ -22,17 +22,15 @@ import java.util.Optional;
 public final class LimboService {
 
     private final ProxyServer server;
-    private final YAstroLoginProxy plugin;
     private final Logger logger;
     private final LimboFactory factory;
     private final ProxyConfig config;
 
     private Limbo limbo;
 
-    public LimboService(ProxyServer server, YAstroLoginProxy plugin, Logger logger,
+    public LimboService(ProxyServer server, Logger logger,
                         LimboFactory factory, ProxyConfig config) {
         this.server = server;
-        this.plugin = plugin;
         this.logger = logger;
         this.factory = factory;
         this.config = config;
@@ -52,13 +50,6 @@ public final class LimboService {
         // + tab-complete, em vez de "comando desconhecido" em vermelho). O input continua
         // sendo tratado em AuthLimboHandler.onChat, aqui é só a árvore de comandos do client.
         this.limbo.registerCommand(new LimboCommandMeta(List.of("login", "l", "register", "reg", "recuperar")));
-
-        // blindness: a LimboAPI 1.1.27 não expõe efeito de poção/mob-effect limpo (LimboPlayer só
-        // tem writePacket cru, descartado por decisão). Avisa uma vez e ignora o toggle.
-        if (config.limboBlindness) {
-            logger.warn("limbo-blindness=true mas a versão atual do LimboAPI não expõe efeito de poção limpo; "
-                    + "ignorando (feature não-suportada nesta plataforma).");
-        }
     }
 
     public boolean isReady() {

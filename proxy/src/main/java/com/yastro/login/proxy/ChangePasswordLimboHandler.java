@@ -83,13 +83,19 @@ public final class ChangePasswordLimboHandler implements LimboSessionHandler {
             return;
         }
         // stage == NEW
+        char[] cur = current;
+        if (cur == null) {
+            // estado inconsistente (ex.: um submit anterior não enfileirou): recomeça
+            // pedindo a senha atual, em vez de desreferenciar null mais adiante.
+            stage = Stage.CURRENT;
+            send("changepass.enter-current");
+            return;
+        }
         if (!inFlight.compareAndSet(false, true)) {
             send("login.processing");
             return;
         }
-        char[] next = line.toCharArray();
-        char[] cur = current; // a própria changePassword zera cur e next no finally dela
-        current = null;
+        char[] next = line.toCharArray(); // a própria changePassword zera cur e next no finally dela
         String name = player.getUsername();
         String ip = ip();
         boolean queued = authService.trySubmit(() -> {
@@ -103,11 +109,14 @@ public final class ChangePasswordLimboHandler implements LimboSessionHandler {
             }
         });
         if (!queued) {
-            Arrays.fill(cur, '\0');
+            // não enfileirou: zera só a nova senha e mantém 'current' intacto pra retry
+            // (a changePassword não rodou, então não zerou cur). Sem travar o inFlight.
             Arrays.fill(next, '\0');
             inFlight.set(false);
             send("error.busy");
+            return;
         }
+        current = null; // só solta a referência após enfileirar; a task zera o array no finally
     }
 
     @Override

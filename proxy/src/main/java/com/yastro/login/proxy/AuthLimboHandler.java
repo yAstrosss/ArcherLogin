@@ -69,13 +69,9 @@ public final class AuthLimboHandler implements LimboSessionHandler {
     public void onSpawn(Limbo server, LimboPlayer player) {
         this.limboPlayer = player;
         this.player = player.getProxyPlayer();
-        // hide-players: o limbo virtual da LimboAPI já isola cada conexão por construção, spawnPlayer
-        // é por-conexão e a API não tem nenhum método de player-list/visibilidade que adicione a entity
-        // ou a entrada de tablist de outro jogador. O toggle fica como guarda defensiva (sem chamada que
-        // finja fazer algo); se um dia a API expuser visibilidade, este é o ponto de aplicar.
-        if (config.limboHidePlayers) {
-            // isolamento nativo: nada a fazer aqui.
-        }
+        // O limbo virtual da LimboAPI já isola cada conexão por construção (spawnPlayer é
+        // por-conexão; a API não expõe player-list/visibilidade que vaze a entity ou o
+        // tablist de outro jogador). Nada a fazer aqui pra esconder players.
         scheduleIdleKick(player);
         // isRegistered() é JDBC BLOQUEANTE, não pode rodar na thread de spawn do LimboAPI.
         // Vai pro pool; o prompt (showTitle/sendMessage são thread-safe) aparece quando volta.

@@ -44,15 +44,6 @@ class PasswordHasherTest {
     }
 
     @Test
-    void algorithmDetection() {
-        String argon = hasher.hash("abc12345".toCharArray());
-        String bcrypt = BCrypt.withDefaults().hashToString(4, "abc12345".toCharArray());
-        assertEquals("argon2id", PasswordHasher.algorithmOf(argon));
-        assertEquals("bcrypt", PasswordHasher.algorithmOf(bcrypt));
-        assertEquals("desconhecido", PasswordHasher.algorithmOf("???"));
-    }
-
-    @Test
     void differentSaltsProduceDifferentHashes() {
         String a = hasher.hash("mesmaSenha".toCharArray());
         String b = hasher.hash("mesmaSenha".toCharArray());

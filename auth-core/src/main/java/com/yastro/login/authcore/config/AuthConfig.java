@@ -9,10 +9,8 @@ public final class AuthConfig {
     public String mysqlUser; public String mysqlPassword; public int mysqlPoolSize;
     public int argonMemoryKib, argonIterations, argonParallelism;
     public int minPassword;
-    public boolean sessionEnabled; public int sessionDurationMinutes;
     public int maxAttempts, attemptWindowSeconds, lockoutSeconds;
     public int accountMaxAttempts, accountLockoutSeconds;
-    public String language;
     public boolean emailEnabled;
     public String emailHost;
     public int emailPort;
@@ -37,14 +35,11 @@ public final class AuthConfig {
         c.argonIterations = clamp(intval(r, "hash.argon2.iterations", 2), 1, 10);
         c.argonParallelism = clamp(intval(r, "hash.argon2.parallelism", 1), 1, 8);
         c.minPassword = clamp(intval(r, "password.min-length", 8), 6, 64);
-        c.sessionEnabled = boolval(r, "session.enabled", true);
-        c.sessionDurationMinutes = clamp(intval(r, "session.duration-minutes", 5), 0, 1440);
         c.maxAttempts = clamp(intval(r, "bruteforce.max-attempts", 5), 1, 100);
         c.attemptWindowSeconds = clamp(intval(r, "bruteforce.window-seconds", 60), 5, 3600);
         c.lockoutSeconds = clamp(intval(r, "bruteforce.lockout-seconds", 300), 10, 86400);
         c.accountMaxAttempts = clamp(intval(r, "bruteforce.account-max-attempts", 10), 3, 200);
         c.accountLockoutSeconds = clamp(intval(r, "bruteforce.account-lockout-seconds", 600), 10, 86400);
-        c.language = str(r, "language", "br").trim().toLowerCase(Locale.ROOT);
         c.emailEnabled = boolval(r, "email.enabled", false);
         c.emailHost = str(r, "email.smtp.host", "smtp.gmail.com");
         c.emailPort = intval(r, "email.smtp.port", 587);

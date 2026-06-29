@@ -28,9 +28,7 @@ class AuthServiceTest {
             byName.put(name.toLowerCase(), new Account(a.name(), a.uuid(), h, a.email(), a.regIp(), a.lastIp(), a.premium(), a.registeredAt(), a.lastLogin()));
         }
         @Override public void touchLogin(String name, String ip, long when) { }
-        @Override public void setPremium(String name, boolean premium) { }
         @Override public void setEmail(String name, String email) { }
-        @Override public void delete(String name) { byName.remove(name.toLowerCase()); }
         @Override public int countByRegIp(String ip) {
             int n = 0;
             for (Account a : byName.values()) {

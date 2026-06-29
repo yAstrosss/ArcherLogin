@@ -30,8 +30,6 @@ public final class ProxyConfig {
     public String lobbyServer = "lobby";
     public String limboDimension = "THE_END";
     public int limboTimeoutSeconds = 60;
-    public boolean limboHidePlayers = true;
-    public boolean limboBlindness = false;
     /** Capacidade da fila bounded do pool de auth (C1: rejeita flood em vez de crescer sem limite). */
     public int authQueueCapacity = 128;
     public boolean ipLimitEnabled = true;
@@ -84,8 +82,6 @@ public final class ProxyConfig {
             cfg.lobbyServer = props.getProperty("lobby-server", "lobby").trim();
             cfg.limboDimension = props.getProperty("limbo-dimension", "THE_END").trim().toUpperCase(Locale.ROOT);
             cfg.limboTimeoutSeconds = clampInt(props.getProperty("limbo-timeout-seconds", "60"), 0, 600, 60);
-            cfg.limboHidePlayers = Boolean.parseBoolean(props.getProperty("limbo-hide-players", "true"));
-            cfg.limboBlindness = Boolean.parseBoolean(props.getProperty("limbo-blindness", "false"));
             cfg.authQueueCapacity = clampInt(props.getProperty("auth-queue-capacity", "128"), 16, 4096, 128);
             cfg.ipLimitEnabled = Boolean.parseBoolean(props.getProperty("ip-limit-enabled", "true"));
             cfg.ipLimitMax = clampInt(props.getProperty("ip-limit-max-accounts", "3"), 1, 50, 3);
@@ -96,9 +92,6 @@ public final class ProxyConfig {
             cfg.uiActionBar = Boolean.parseBoolean(props.getProperty("ui-action-bar", "true"));
             cfg.uiSound = Boolean.parseBoolean(props.getProperty("ui-sound", "true"));
 
-            // idioma das mensagens (clamps/validacao no AuthConfig)
-            putIf(cfg.authRaw, "language", props.getProperty("language"));
-
             // hash Argon2id (custo/seguranca; clamps no AuthConfig)
             putIf(cfg.authRaw, "hash.argon2.memory-kib", props.getProperty("hash-argon2-memory-kib"));
             putIf(cfg.authRaw, "hash.argon2.iterations", props.getProperty("hash-argon2-iterations"));
@@ -106,10 +99,6 @@ public final class ProxyConfig {
 
             // regra de senha
             putIf(cfg.authRaw, "password.min-length", props.getProperty("password-min-length"));
-
-            // sessao (nao repedir senha no mesmo IP dentro da janela)
-            putIf(cfg.authRaw, "session.enabled", props.getProperty("session-enabled"));
-            putIf(cfg.authRaw, "session.duration-minutes", props.getProperty("session-duration-minutes"));
 
             // anti-bruteforce (lockout por IP e por CONTA)
             putIf(cfg.authRaw, "bruteforce.max-attempts", props.getProperty("bruteforce-max-attempts"));
@@ -222,8 +211,6 @@ public final class ProxyConfig {
         kv(b, v, "lobby-server", "nome (no velocity.toml) do servidor pós-login");
         kv(b, v, "limbo-dimension", "OVERWORLD | THE_NETHER | THE_END");
         kv(b, v, "limbo-timeout-seconds", "expulsa se não logar nesse tempo (0–600)");
-        kv(b, v, "limbo-hide-players", "esconde outros jogadores no limbo");
-        kv(b, v, "limbo-blindness", "aplica cegueira no limbo");
 
         sec(b, "HASH DE SENHA (Argon2id)",
                 "Custo do hash. Pico de RAM ≈ parallelism × memory-kib (NÃO multiplica por jogador).",
@@ -232,11 +219,6 @@ public final class ProxyConfig {
         kv(b, v, "hash-argon2-iterations", "passagens (custo de tempo)");
         kv(b, v, "hash-argon2-parallelism", "threads por hash");
         kv(b, v, "password-min-length", "tamanho mínimo de senha no registro");
-
-        sec(b, "SESSÃO",
-                "Não repede a senha no mesmo IP dentro da janela (conveniência pós-reconnect).");
-        kv(b, v, "session-enabled", "liga/desliga a sessão por IP");
-        kv(b, v, "session-duration-minutes", "duração da sessão");
 
         sec(b, "ANTI-BRUTEFORCE",
                 "Lockout por IP e por CONTA (barra brute-force distribuído de vários IPs num só nick).");
@@ -264,7 +246,6 @@ public final class ProxyConfig {
 
         sec(b, "INTERFACE",
                 "Feedback visual/sonoro no cliente durante o login.");
-        kv(b, v, "language", "idioma das mensagens (ex.: br, en)");
         kv(b, v, "ui-title", "mostra título na tela");
         kv(b, v, "ui-action-bar", "mostra texto na action bar");
         kv(b, v, "ui-sound", "toca som de feedback");
@@ -374,8 +355,6 @@ public final class ProxyConfig {
         p.setProperty("lobby-server", "lobby");
         p.setProperty("limbo-dimension", "THE_END");
         p.setProperty("limbo-timeout-seconds", "60");
-        p.setProperty("limbo-hide-players", "true");
-        p.setProperty("limbo-blindness", "false");
         p.setProperty("auth-queue-capacity", "128");
         p.setProperty("ip-limit-enabled", "true");
         p.setProperty("ip-limit-max-accounts", "3");
@@ -385,16 +364,12 @@ public final class ProxyConfig {
         p.setProperty("ui-title", "true");
         p.setProperty("ui-action-bar", "true");
         p.setProperty("ui-sound", "true");
-        p.setProperty("language", "br");
         // Hash Argon2id (baseline OWASP; pico de RAM ~ nucleos x memory-kib, NAO jogadores x memory-kib).
         p.setProperty("hash-argon2-memory-kib", "19456");
         p.setProperty("hash-argon2-iterations", "2");
         p.setProperty("hash-argon2-parallelism", "1");
         // Regra de senha
         p.setProperty("password-min-length", "8");
-        // Sessao (0 = desliga; nao repede senha no mesmo IP dentro da janela)
-        p.setProperty("session-enabled", "true");
-        p.setProperty("session-duration-minutes", "5");
         // Anti-bruteforce: lockout por IP + por CONTA (barra brute-force distribuido)
         p.setProperty("bruteforce-max-attempts", "5");
         p.setProperty("bruteforce-window-seconds", "60");

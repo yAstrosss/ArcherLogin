@@ -139,7 +139,7 @@ public final class YAstroLoginProxy {
             this.storage = null;
         }
 
-        this.limbo = new LimboService(server, this, logger, factory, config);
+        this.limbo = new LimboService(server, logger, factory, config);
         this.limbo.init();
 
         // AuthService + Messages: serviço de auth usado pelo handler do limbo e pelos comandos.

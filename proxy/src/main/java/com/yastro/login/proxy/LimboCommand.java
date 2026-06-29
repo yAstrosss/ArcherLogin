@@ -39,7 +39,6 @@ public record LimboCommand(Type type, List<String> args) {
         if (resolvedType == Type.OTHER) {
             return OTHER;
         }
-        List<String> argList = List.of(parts).subList(1, parts.length);
-        return new LimboCommand(resolvedType, List.copyOf(argList));
+        return new LimboCommand(resolvedType, List.of(parts).subList(1, parts.length));
     }
 }

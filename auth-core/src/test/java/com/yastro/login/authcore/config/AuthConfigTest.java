@@ -47,12 +47,6 @@ class AuthConfigTest {
     }
 
     @Test
-    void clampsSessionDurationCeiling() {
-        AuthConfig c = AuthConfig.fromMap(Map.of("session.duration-minutes", 99999));
-        assertEquals(1440, c.sessionDurationMinutes);
-    }
-
-    @Test
     void appliesEmailDefaults() {
         AuthConfig c = AuthConfig.fromMap(Map.of());
         assertFalse(c.emailEnabled);
