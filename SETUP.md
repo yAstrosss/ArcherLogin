@@ -46,7 +46,25 @@ that secret out of git.**
 
 - Copy `yAstroLogin.jar` into the **Velocity** `plugins/` folder.
 - On the 1st boot, `plugins/archerlogin/config.properties` is created with the defaults
-  below. (An older file gets the new keys added automatically on boot.)
+  below. (An older file gets the new keys added automatically on boot, and is reorganized
+  into commented sections while keeping your values.)
+
+Only `config.properties` and `messages.yml` live at the root of the plugin folder, the
+rest is internal and goes into subfolders, created on first boot:
+
+```
+plugins/archerlogin/
+├── config.properties     # configuration (you edit this)
+├── messages.yml          # text/language (you edit this)
+├── database/             # internal — do not edit
+│   ├── accounts.db       # SQLite database (+ -wal/-shm in WAL mode)
+│   └── premium-names.txt # premium-nick registry (anti-downgrade, automatic)
+└── logs/                 # one forensic log per boot, keeps the last 30
+    └── diagnostic-<date>_<time>.log
+```
+
+Coming from an older version (files loose at the root)? Migration into `database/` and
+`logs/` is **automatic and lossless** on the first 1.8.1 boot.
 
 ```properties
 # --- Premium policy / flow ---
@@ -82,7 +100,7 @@ ip-limit-bypass=127.0.0.1               # comma-separated list; IPs exempt from 
 # --- Auth pool ---
 auth-queue-capacity=128                 # bounded queue; full = "busy" (anti-DoS)
 
-# --- Diagnostics (forensic log in plugins/archerlogin/diagnostic.log) ---
+# --- Diagnostics (forensic log: one file per boot in plugins/archerlogin/logs/) ---
 diagnostic-enabled=true
 diagnostic-flood-per-min=100            # connections/min above this is flagged [FLOOD]
 
@@ -188,7 +206,7 @@ restart**.
 
 ## 7. MySQL/MariaDB database (multiple backends)
 
-SQLite (`db-type=sqlite`) keeps everything in an `accounts.db` file in the plugin folder,
+SQLite (`db-type=sqlite`) keeps everything in `plugins/archerlogin/database/accounts.db`,
 great for testing or a single proxy. For a real network with multiple backends, use
 MySQL/MariaDB:
 
