@@ -71,7 +71,6 @@ Coming from an older version (files loose at the root)? Migration into `database
 allow-cracked-on-premium-nicks=false   # true = DANGEROUS (premium nicks become impersonable)
 unknown-policy=deny                     # deny (fail-closed, recommended) | offline
 lobby-server=lobby                      # destination server after login
-language=br                             # br | en
 
 # --- Argon2id hash (peak RAM ~ cores x memory-kib) ---
 hash-argon2-memory-kib=19456            # floor = OWASP baseline; can only be RAISED
@@ -80,10 +79,6 @@ hash-argon2-parallelism=1
 
 # --- Password rule ---
 password-min-length=8
-
-# --- Session (RESERVED: no effect today; cookie persistence tested and not viable, see SECURITY.md section 7) ---
-session-enabled=true
-session-duration-minutes=5
 
 # --- Anti-bruteforce (lockout per IP + per ACCOUNT) ---
 bruteforce-max-attempts=5
@@ -107,8 +102,6 @@ diagnostic-flood-per-min=100            # connections/min above this is flagged 
 # --- Limbo (unauthenticated state) ---
 limbo-dimension=THE_END
 limbo-timeout-seconds=60                # 0 = no kick for inactivity
-limbo-hide-players=true                 # isolation is already native to LimboAPI
-limbo-blindness=false
 
 # --- Limbo UI (login prompt) ---
 ui-title=true

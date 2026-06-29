@@ -159,12 +159,12 @@ admin's name while verification is blind.
 - **Persistent session ("stay logged in"):** **not implemented.** Today the "authenticated"
   state lives **in proxy memory** (per connection): while connected, switching backends never
   re-asks for the password, but restarting the proxy or reconnecting requires logging in again.
-  The `session-*` keys exist in the config but **have no effect**. Persistence via a **client
-  cookie** was even implemented and **tested in-game (2026-06-20), but does NOT work**: the
-  Minecraft client clears the transfer cookie on disconnect, so the token does not come back
-  on reconnect, a protocol limitation (cookies serve the *transfer* flow between servers, not
-  reconnection). The approach was **reverted**; secure session persistence needs a different
-  mechanism (roadmap).
+  Persistence via a **client cookie** was implemented and **tested in-game (2026-06-20), but
+  does NOT work**: the Minecraft client clears the transfer cookie on disconnect, so the token
+  does not come back on reconnect, a protocol limitation (cookies serve the *transfer* flow
+  between servers, not reconnection). The approach was **reverted** and the session subsystem
+  (manager/store/config keys) was **removed from the code**; secure session persistence needs a
+  different mechanism (roadmap).
 - **Bedrock/Floodgate:** **not** supported. A name outside `^[A-Za-z0-9_]{3,16}$` fails
   validation -> it does not register. Explicit integration (Xbox identity = verified,
   separate Java/Bedrock keyspace) is roadmap; do not loosen the name rule manually
@@ -172,8 +172,9 @@ admin's name while verification is blind.
 - **2FA (TOTP / Discord):** roadmap.
 - **Import/convert from AuthMe/nLogin:** verification of imported bcrypt already exists
   (login accepts and migrates); the **table reader** for other plugins is roadmap.
-- **Multi-proxy:** roadmap (the `SessionStorage` in the shared database exists as a base, but the
-  proxy does not yet use it; it depends on a working session persistence, see above).
+- **Multi-proxy:** roadmap. MySQL already shares the accounts across proxies, but cross-proxy
+  session persistence does not exist (the session subsystem was removed); it depends on a working
+  session-persistence mechanism, see above.
 - **Live reload:** there is no reload command, config changes (incl. pool size and
   database) require a **proxy restart**.
 
