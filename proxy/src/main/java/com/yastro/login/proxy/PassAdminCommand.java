@@ -33,8 +33,8 @@ public final class PassAdminCommand implements SimpleCommand {
             return;
         }
         // defesa-em-profundidade, além de recusar jogadores, exige permissão. O console
-        // tem todas as permissões por padrão; uma fonte não-Player não-console (ex.: bridge que
-        // executa como console a partir de input remoto) sem a permissão é barrada.
+        // tem todas as permissões por padrão; qualquer fonte não-Player e não-console sem a
+        // permissão é barrada.
         if (!source.hasPermission("archerlogin.admin.passadmin")) {
             source.sendMessage(msg("admin.passadmin.console-only"));
             return;
