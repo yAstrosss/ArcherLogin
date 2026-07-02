@@ -1,6 +1,4 @@
-// yAstroLogin / ArcherLogin, sistema de login para Minecraft 1.21.11 (Java 21).
-// Concorrente livre do nLogin. Prioridade: segurança e qualidade.
-//
+// ArcherLogin, sistema de login para Minecraft 1.21.11 (Java 21).
 // Arquitetura proxy-cêntrica: auth toda no Velocity + limbo (LimboAPI); backends sem plugin.
 // Módulos:
 // common, código puro Java compartilhado (protocolo, cliente Mojang).
