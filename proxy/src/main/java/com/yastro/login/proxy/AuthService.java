@@ -105,6 +105,11 @@ public final class AuthService {
                 return AuthOutcome.fail("login.uuid-mismatch");
             }
             if (!hasher.verify(pass, a.passwordHash())) {
+                if (hasher.isFastLegacy(a.passwordHash())) {
+                    // conta ainda em hash legado rápido: sem isto, senha errada aqui responde
+                    // muito mais rápido que contra conta em Argon2id, oráculo de "não migrada ainda"
+                    hasher.hashDummy();
+                }
                 return AuthOutcome.fail("login.wrong");
             }
             // sucesso

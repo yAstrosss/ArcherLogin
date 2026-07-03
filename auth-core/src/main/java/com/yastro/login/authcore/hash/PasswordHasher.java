@@ -118,6 +118,22 @@ public final class PasswordHasher {
         Arrays.fill(out, (byte) 0);
     }
 
+    /**
+     * True se {@code stored} é um digest legado RÁPIDO (SHA256/MD5/SHA512/PBKDF2 do AuthMe),
+     * ou seja, um formato cujo {@code verify} roda em µs-ms em vez das dezenas de ms do Argon2id.
+     * Usado no login para PADRONIZAR o tempo de resposta quando a senha está errada: sem isto,
+     * uma tentativa errada contra conta ainda-não-migrada responde bem mais rápido que contra
+     * conta em Argon2id, um oráculo de timing que revela "conta existe e ainda usa hash fraco"
+     * (janela de migração, se autocura conforme as contas logam e são re-hasheadas).
+     * Argon2id e bcrypt já são lentos por si só, então retornam {@code false} (sem padding).
+     */
+    public boolean isFastLegacy(String stored) {
+        if (stored == null || isBcrypt(stored) || stored.startsWith("$argon2id$")) {
+            return false;
+        }
+        return com.yastro.login.authcore.hash.legacy.LegacyHashers.detect(legacy, stored) != null;
+    }
+
     /** True se o hash não é Argon2id com os parâmetros atuais (deve ser re-gerado). */
     public boolean needsRehash(String stored) {
         if (stored == null || !stored.startsWith("$argon2id$")) {

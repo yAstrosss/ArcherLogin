@@ -25,4 +25,43 @@ class PasswordHasherLegacyTest {
         assertFalse(hasher.verify("password".toCharArray(), "not-a-hash"));
         assertFalse(hasher.verify("password".toCharArray(), "zzzz$zzzz"));
     }
+
+    // ---- isFastLegacy: guia o padding de timing no login (fecha oráculo da janela de migração) ---
+
+    @Test
+    void isFastLegacyTrueForAuthMeSha256() {
+        assertTrue(hasher.isFastLegacy(AUTHME_SHA256));
+    }
+
+    @Test
+    void isFastLegacyTrueForPbkdf2() {
+        assertTrue(hasher.isFastLegacy("pbkdf2_sha256$10000$aabbccdd$" + "00".repeat(32)));
+    }
+
+    @Test
+    void isFastLegacyTrueForBareMd5() {
+        assertTrue(hasher.isFastLegacy("d".repeat(32))); // 32 hex = MD5 cru
+    }
+
+    @Test
+    void isFastLegacyTrueForBareSha512() {
+        assertTrue(hasher.isFastLegacy("e".repeat(128))); // 128 hex = SHA512 cru
+    }
+
+    @Test
+    void isFastLegacyFalseForArgon2id() {
+        String argon2 = hasher.hash("password".toCharArray());
+        assertFalse(hasher.isFastLegacy(argon2));
+    }
+
+    @Test
+    void isFastLegacyFalseForBcrypt() {
+        assertFalse(hasher.isFastLegacy("$2a$10$" + "a".repeat(53)));
+    }
+
+    @Test
+    void isFastLegacyFalseForUnknownFormat() {
+        assertFalse(hasher.isFastLegacy("not-a-hash"));
+        assertFalse(hasher.isFastLegacy(null));
+    }
 }
