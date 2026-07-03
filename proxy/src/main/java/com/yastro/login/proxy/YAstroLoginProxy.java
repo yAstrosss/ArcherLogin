@@ -258,11 +258,6 @@ public final class YAstroLoginProxy {
             return null;
         }
         final String username = event.getUsername();
-        // @mc-unverified: docsMC/04_adventure_placeholderapi.md consultado (Read+Grep) nesta
-        // sessão antes deste edit — D1-D4 revisadas; Component.text() abaixo só embrulha
-        // strings literais (sem MiniMessage/PAPI/input de player), então as regras de
-        // tag-injection do domínio não se aplicam. Marker presente porque o hook de guarda
-        // (mc-doc-guard.js) não enxergou a consulta feita pelo transcript deste subagente.
         // Bedrock (Floodgate): identidade já provada pelo XUID; aqui só temos o username
         // (com o prefixo Floodgate), não o uniqueId — a checagem autoritativa (isBedrock por
         // UUID) fica pro PostLogin. Aqui só evitamos recusar por nick "inválido" e mandar pro
@@ -327,15 +322,19 @@ public final class YAstroLoginProxy {
             return;
         }
         Player player = event.getPlayer();
-        // @mc-unverified: docsMC/04_adventure_placeholderapi.md já consultado nesta sessão
-        // (ver onPreLogin acima) — Component.text() abaixo é string literal, sem
-        // MiniMessage/PAPI. Marker repetido só pq o guard não vê o transcript do subagente.
         UUID id = player.getUniqueId();
         // Bedrock (Floodgate): checagem AUTORITATIVA (por uniqueId, não pelo prefixo de nick
-        // usado no PreLogin). Guard anti-hijack primeiro: uma conexão não-Floodgate não pode
-        // entrar numa conta que já está marcada como bedrock no banco.
+        // usado no PreLogin). Guard anti-hijack: o namespace de prefixo Floodgate é reservado
+        // pra conexões Bedrock autoritativas. Uma conexão não-Bedrock é recusada se a conta já
+        // está marcada bedrock no banco (isRegisteredBedrock, incondicional — protege mesmo com
+        // Floodgate temporariamente fora do ar) OU se o nick tem cara de prefixo Floodgate e o
+        // Floodgate está disponível (reserva o namespace pra impedir que um cliente Java registre
+        // ".Steve" antes do Bedrock real chegar). Nick Java de verdade nunca começa com caractere
+        // fora de [A-Za-z0-9_] (regra Mojang), então isso só barra spoof, nunca jogador legítimo.
         boolean isBedrock = bedrock.available() && bedrock.isBedrock(id);
-        if (!isBedrock && isRegisteredBedrock(player.getUsername())) {
+        if (!isBedrock
+                && (isRegisteredBedrock(player.getUsername())
+                    || (bedrock.available() && FloodgateNick.looksLikeFloodgate(player.getUsername())))) {
             player.disconnect(Component.text(
                     "Esta conta é Bedrock e só pode entrar via Bedrock/Geyser."));
             logger.warn("Anti-hijack: conexão não-Bedrock recusada para conta bedrock {}", player.getUsername());
