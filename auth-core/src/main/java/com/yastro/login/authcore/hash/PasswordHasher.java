@@ -52,11 +52,20 @@ public final class PasswordHasher {
     private final int memoryKib;
     private final int iterations;
     private final int parallelism;
+    private final java.util.List<com.yastro.login.authcore.hash.legacy.LegacyVerifier> legacy;
 
     public PasswordHasher(int memoryKib, int iterations, int parallelism) {
+        this(memoryKib, iterations, parallelism,
+                com.yastro.login.authcore.hash.legacy.LegacyHashers.defaultSet());
+    }
+
+    /** Construtor com set de verifiers legados customizado (import desligado = lista vazia). */
+    public PasswordHasher(int memoryKib, int iterations, int parallelism,
+                          java.util.List<com.yastro.login.authcore.hash.legacy.LegacyVerifier> legacy) {
         this.memoryKib = memoryKib;
         this.iterations = iterations;
         this.parallelism = parallelism;
+        this.legacy = legacy;
     }
 
     /** Gera o hash Argon2id no formato PHC. */
@@ -90,6 +99,11 @@ public final class PasswordHasher {
         }
         if (stored.startsWith("$argon2id$")) {
             return verifyArgon2(password, stored);
+        }
+        com.yastro.login.authcore.hash.legacy.LegacyVerifier v =
+                com.yastro.login.authcore.hash.legacy.LegacyHashers.detect(legacy, stored);
+        if (v != null) {
+            return v.verify(password, stored);
         }
         return false; // formato desconhecido: nunca autentica
     }
