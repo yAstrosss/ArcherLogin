@@ -12,6 +12,7 @@ public record Account(
         String lastIp,
         boolean premium,
         long registeredAt,
-        long lastLogin
+        long lastLogin,
+        boolean bedrock
 ) {
 }

@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -63,10 +65,28 @@ public final class MySqlStorage extends JdbcStorage {
                 + "premium TINYINT NOT NULL DEFAULT 0,"
                 + "registered_at BIGINT NOT NULL,"
                 + "last_login BIGINT NOT NULL DEFAULT 0,"
+                + "bedrock TINYINT NOT NULL DEFAULT 0,"
                 + "INDEX idx_regip (reg_ip)"
                 + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         try (Statement st = c.createStatement()) {
             st.execute(ddl);
+        }
+        ensureBedrockColumn(c);
+    }
+
+    /** Migracao idempotente: adiciona a coluna bedrock em bancos criados antes da task A1. */
+    private void ensureBedrockColumn(Connection c) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() "
+                        + "AND table_name = ? AND column_name = 'bedrock'")) {
+            ps.setString(1, TABLE);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    try (Statement alt = c.createStatement()) {
+                        alt.execute("ALTER TABLE " + TABLE + " ADD COLUMN bedrock TINYINT NOT NULL DEFAULT 0");
+                    }
+                }
+            }
         }
     }
 

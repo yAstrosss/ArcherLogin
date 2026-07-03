@@ -263,18 +263,18 @@ You must copy the rival hashes into ArcherLogin's table `yastrologin_accounts` (
 
 ```sql
 INSERT IGNORE INTO yastrologin_accounts
-  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login)
+  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login, bedrock)
 SELECT LOWER(realname), realname, '', password, ip, ip, 0,
-       COALESCE(regdate,0), COALESCE(lastlogin,0)
+       COALESCE(regdate,0), COALESCE(lastlogin,0), 0
 FROM authme;
 ```
 
 SQLite (AuthMe SQLite `authme` table):
 ```sql
 INSERT OR IGNORE INTO yastrologin_accounts
-  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login)
+  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login, bedrock)
 SELECT lower(realname), realname, '', password, ip, ip, 0,
-       coalesce(regdate,0), coalesce(lastlogin,0)
+       coalesce(regdate,0), coalesce(lastlogin,0), 0
 FROM authme;
 ```
 

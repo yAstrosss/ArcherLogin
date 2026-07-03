@@ -25,7 +25,7 @@ class AuthServiceTest {
         @Override public void register(Account a) { byName.put(a.name().toLowerCase(), a); }
         @Override public void updatePassword(String name, String h) {
             Account a = byName.get(name.toLowerCase());
-            byName.put(name.toLowerCase(), new Account(a.name(), a.uuid(), h, a.email(), a.regIp(), a.lastIp(), a.premium(), a.registeredAt(), a.lastLogin()));
+            byName.put(name.toLowerCase(), new Account(a.name(), a.uuid(), h, a.email(), a.regIp(), a.lastIp(), a.premium(), a.registeredAt(), a.lastLogin(), a.bedrock()));
         }
         @Override public void touchLogin(String name, String ip, long when) { }
         @Override public void setEmail(String name, String email) { }

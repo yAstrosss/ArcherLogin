@@ -55,7 +55,7 @@ public abstract class JdbcStorage implements AccountStorage {
         return exec(c -> {
             try (PreparedStatement ps = c.prepareStatement(
                     "SELECT name, uuid, password_hash, email, reg_ip, last_ip, premium, "
-                            + "registered_at, last_login FROM " + TABLE + " WHERE name_lower = ?")) {
+                            + "registered_at, last_login, bedrock FROM " + TABLE + " WHERE name_lower = ?")) {
                 ps.setString(1, key);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
@@ -70,7 +70,8 @@ public abstract class JdbcStorage implements AccountStorage {
                             rs.getString("last_ip"),
                             rs.getInt("premium") != 0,
                             rs.getLong("registered_at"),
-                            rs.getLong("last_login")));
+                            rs.getLong("last_login"),
+                            rs.getInt("bedrock") != 0));
                 }
             }
         });
@@ -81,8 +82,8 @@ public abstract class JdbcStorage implements AccountStorage {
         exec(c -> {
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO " + TABLE + " (name_lower, name, uuid, password_hash, email, "
-                            + "reg_ip, last_ip, premium, registered_at, last_login) "
-                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+                            + "reg_ip, last_ip, premium, registered_at, last_login, bedrock) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
                 ps.setString(1, AccountKey.normalize(a.name()));
                 ps.setString(2, a.name());
                 ps.setString(3, a.uuid());
@@ -93,6 +94,7 @@ public abstract class JdbcStorage implements AccountStorage {
                 ps.setInt(8, a.premium() ? 1 : 0);
                 ps.setLong(9, a.registeredAt());
                 ps.setLong(10, a.lastLogin());
+                ps.setInt(11, a.bedrock() ? 1 : 0);
                 ps.executeUpdate();
             }
             return null;

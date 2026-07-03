@@ -160,7 +160,7 @@ public final class AuthService {
                     return AuthOutcome.fail("register.already");
                 }
                 long now = System.currentTimeMillis();
-                Account a = new Account(name, uuid, hasher.hash(pass), null, ip, ip, false, now, now);
+                Account a = new Account(name, uuid, hasher.hash(pass), null, ip, ip, false, now, now, false);
                 storage.register(a);
             } catch (Exception e) {
                 if (isDuplicateKey(e)) {
