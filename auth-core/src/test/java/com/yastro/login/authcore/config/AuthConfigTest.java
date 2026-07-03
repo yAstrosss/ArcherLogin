@@ -76,4 +76,16 @@ class AuthConfigTest {
         assertFalse(AuthConfig.fromMap(
                 java.util.Map.of("legacy-import.enabled", "false")).legacyImportEnabled);
     }
+
+    @Test
+    void sessionDefaultsAndClamp() {
+        AuthConfig def = AuthConfig.fromMap(java.util.Map.of());
+        assertTrue(def.sessionEnabled);
+        assertEquals(30, def.sessionTtlMinutes);
+        assertFalse(AuthConfig.fromMap(java.util.Map.of("session.enabled", "false")).sessionEnabled);
+        // clamp: 0 -> floor 1 ; 99999 -> ceil 1440
+        assertEquals(1, AuthConfig.fromMap(java.util.Map.of("session.ttl-minutes", "0")).sessionTtlMinutes);
+        assertEquals(1440, AuthConfig.fromMap(java.util.Map.of("session.ttl-minutes", "99999")).sessionTtlMinutes);
+        assertEquals(60, AuthConfig.fromMap(java.util.Map.of("session.ttl-minutes", "60")).sessionTtlMinutes);
+    }
 }

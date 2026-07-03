@@ -20,6 +20,8 @@ public final class AuthConfig {
     public String emailEncryption;
     public int emailCodeTtlMinutes;
     public boolean legacyImportEnabled;
+    public boolean sessionEnabled;
+    public int sessionTtlMinutes;
 
     public static AuthConfig fromMap(Map<String, Object> r) {
         AuthConfig c = new AuthConfig();
@@ -50,6 +52,8 @@ public final class AuthConfig {
         c.emailEncryption = str(r, "email.smtp.encryption", "tls").trim().toLowerCase(Locale.ROOT);
         c.emailCodeTtlMinutes = clamp(intval(r, "email.code-ttl-minutes", 10), 1, 60);
         c.legacyImportEnabled = boolval(r, "legacy-import.enabled", true);
+        c.sessionEnabled = boolval(r, "session.enabled", true);
+        c.sessionTtlMinutes = clamp(intval(r, "session.ttl-minutes", 30), 1, 1440);
         return c;
     }
 
