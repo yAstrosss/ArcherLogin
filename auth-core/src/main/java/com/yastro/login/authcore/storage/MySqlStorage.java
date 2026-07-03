@@ -70,6 +70,11 @@ public final class MySqlStorage extends JdbcStorage {
                 + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         try (Statement st = c.createStatement()) {
             st.execute(ddl);
+            st.execute("CREATE TABLE IF NOT EXISTS " + SESSIONS + " ("
+                    + "name_lower VARCHAR(16) PRIMARY KEY,"
+                    + "ip VARCHAR(45) NOT NULL,"
+                    + "expires_at BIGINT NOT NULL"
+                    + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         }
         ensureBedrockColumn(c);
     }

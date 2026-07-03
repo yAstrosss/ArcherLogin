@@ -13,9 +13,11 @@ import com.yastro.login.common.AccountKey;
  * {@link PreparedStatement} (sem SQL injection). As subclasses fornecem a conexão
  * ({@link #exec}) e o DDL específico do dialeto ({@link #createSchema}).
  */
-public abstract class JdbcStorage implements AccountStorage {
+public abstract class JdbcStorage implements AccountStorage,
+        com.yastro.login.authcore.session.SessionStorage {
 
     protected static final String TABLE = "yastrologin_accounts";
+    protected static final String SESSIONS = "yastrologin_sessions";
 
     @FunctionalInterface
     protected interface ConnFn<T> {
@@ -157,6 +159,68 @@ public abstract class JdbcStorage implements AccountStorage {
                     return rs.next() ? rs.getInt(1) : 0;
                 }
             }
+        });
+    }
+
+    @Override
+    public void upsertSession(String nameLower, String ip, long expiresAtMillis) throws SQLException {
+        exec(c -> {
+            // delete-then-insert = upsert portável (SQLite e MySQL) sem sintaxe específica de dialeto
+            try (PreparedStatement del = c.prepareStatement(
+                    "DELETE FROM " + SESSIONS + " WHERE name_lower = ?")) {
+                del.setString(1, nameLower);
+                del.executeUpdate();
+            }
+            try (PreparedStatement ins = c.prepareStatement(
+                    "INSERT INTO " + SESSIONS + " (name_lower, ip, expires_at) VALUES (?, ?, ?)")) {
+                ins.setString(1, nameLower);
+                ins.setString(2, ip);
+                ins.setLong(3, expiresAtMillis);
+                ins.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public java.util.Optional<com.yastro.login.authcore.session.Session> findSession(String nameLower)
+            throws SQLException {
+        return exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "SELECT ip, expires_at FROM " + SESSIONS + " WHERE name_lower = ?")) {
+                ps.setString(1, nameLower);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return java.util.Optional.empty();
+                    }
+                    return java.util.Optional.of(new com.yastro.login.authcore.session.Session(
+                            nameLower, rs.getString("ip"), rs.getLong("expires_at")));
+                }
+            }
+        });
+    }
+
+    @Override
+    public void deleteSession(String nameLower) throws SQLException {
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + SESSIONS + " WHERE name_lower = ?")) {
+                ps.setString(1, nameLower);
+                ps.executeUpdate();
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public void deleteExpiredSessions(long nowMillis) throws SQLException {
+        exec(c -> {
+            try (PreparedStatement ps = c.prepareStatement(
+                    "DELETE FROM " + SESSIONS + " WHERE expires_at <= ?")) {
+                ps.setLong(1, nowMillis);
+                ps.executeUpdate();
+            }
+            return null;
         });
     }
 }

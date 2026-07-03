@@ -62,6 +62,10 @@ public final class SqliteStorage extends JdbcStorage {
             st.execute(ddl);
             st.execute("CREATE INDEX IF NOT EXISTS idx_" + TABLE + "_regip ON "
                     + TABLE + " (reg_ip)");
+            st.execute("CREATE TABLE IF NOT EXISTS " + SESSIONS + " ("
+                    + "name_lower TEXT PRIMARY KEY,"
+                    + "ip TEXT NOT NULL,"
+                    + "expires_at INTEGER NOT NULL)");
         }
         ensureBedrockColumn(c);
     }
