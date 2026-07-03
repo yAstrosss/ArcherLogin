@@ -69,4 +69,11 @@ class AuthConfigTest {
     void lowercasesEmailEncryptionWithRootLocale() {
         assertEquals("ssl", AuthConfig.fromMap(Map.of("email.smtp.encryption", "SSL")).emailEncryption);
     }
+
+    @Test
+    void legacyImportDefaultsTrueAndParses() {
+        assertTrue(AuthConfig.fromMap(java.util.Map.of()).legacyImportEnabled);
+        assertFalse(AuthConfig.fromMap(
+                java.util.Map.of("legacy-import.enabled", "false")).legacyImportEnabled);
+    }
 }

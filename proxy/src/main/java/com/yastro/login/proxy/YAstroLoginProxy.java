@@ -145,7 +145,10 @@ public final class YAstroLoginProxy {
         // AuthService + Messages: serviço de auth usado pelo handler do limbo e pelos comandos.
         this.messages = MessagesLoader.load(dataDirectory, logger);
         PasswordHasher hasher = new PasswordHasher(
-                authConfig.argonMemoryKib, authConfig.argonIterations, authConfig.argonParallelism);
+                authConfig.argonMemoryKib, authConfig.argonIterations, authConfig.argonParallelism,
+                authConfig.legacyImportEnabled
+                        ? com.yastro.login.authcore.hash.legacy.LegacyHashers.defaultSet()
+                        : java.util.List.of());
         AuthThrottle throttle = new AuthThrottle(
                 authConfig.maxAttempts, authConfig.attemptWindowSeconds, authConfig.lockoutSeconds);
         // throttle por CONTA (brute-force distribuído). Reaproveita a janela do IP.

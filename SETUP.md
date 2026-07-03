@@ -252,3 +252,33 @@ kept in check. Only **raise** `memory-kib` on a strong dedicated server, the val
 **cannot drop** below 19456 (clamped floor = OWASP baseline). Changing the parameters
 does **not** invalidate passwords: each account migrates to the new cost on its next
 login. Changes only take effect after a **proxy restart**.
+
+---
+
+## Migrating from another login plugin
+
+ArcherLogin reads legacy password hashes on login and transparently rehashes them to Argon2id — players keep their old password. Supported source formats: AuthMe (`$SHA$`, `pbkdf2_sha256$`, bare MD5, bare SHA512), LoginSecurity/AuthMe bcrypt (`$2a$/$2b$/$2y$`).
+
+You must copy the rival hashes into ArcherLogin's table `yastrologin_accounts` (column `password_hash`). Example for AuthMe (MySQL, AuthMe table `authme` with columns `username`,`password`,`ip`,`regdate`,`lastlogin`):
+
+```sql
+INSERT IGNORE INTO yastrologin_accounts
+  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login)
+SELECT LOWER(realname), realname, '', password, ip, ip, 0,
+       COALESCE(regdate,0), COALESCE(lastlogin,0)
+FROM authme;
+```
+
+SQLite (AuthMe SQLite `authme` table):
+```sql
+INSERT OR IGNORE INTO yastrologin_accounts
+  (name_lower, name, uuid, password_hash, reg_ip, last_ip, premium, registered_at, last_login)
+SELECT lower(realname), realname, '', password, ip, ip, 0,
+       coalesce(regdate,0), coalesce(lastlogin,0)
+FROM authme;
+```
+
+Notes:
+- The `uuid` column can be left empty (`''`); ArcherLogin does not key on it for cracked accounts.
+- Non-ASCII passwords hashed by an AuthMe host with a non-UTF-8 default charset may not verify (rare). ASCII passwords always migrate.
+- Set `legacy-import.enabled=false` in config to disable legacy verification once migration has settled.

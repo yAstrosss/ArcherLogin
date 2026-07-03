@@ -116,6 +116,9 @@ public final class ProxyConfig {
             putIf(cfg.authRaw, "database.mysql.password", props.getProperty("db-password"));
             putIf(cfg.authRaw, "database.mysql.pool-size", props.getProperty("db-pool-size"));
 
+            // importação de hash legado (AuthMe/LoginSecurity) -> AuthConfig.fromMap
+            putIf(cfg.authRaw, "legacy-import.enabled", props.getProperty("legacy-import.enabled"));
+
             // e-mail (vínculo + recuperação) -> dot-notation do AuthConfig.fromMap
             putIf(cfg.authRaw, "email.enabled", props.getProperty("email-enabled"));
             putIf(cfg.authRaw, "email.smtp.host", props.getProperty("email-smtp-host"));
@@ -219,6 +222,11 @@ public final class ProxyConfig {
         kv(b, v, "hash-argon2-iterations", "passagens (custo de tempo)");
         kv(b, v, "hash-argon2-parallelism", "threads por hash");
         kv(b, v, "password-min-length", "tamanho mínimo de senha no registro");
+
+        sec(b, "IMPORTAÇÃO DE HASH LEGADO",
+                "Reconhece hash de outro plugin de login no primeiro /login e migra p/ Argon2id.",
+                "Desligue depois que a migração dos jogadores tiver assentado.");
+        kv(b, v, "legacy-import.enabled", "Reconhece hashes de AuthMe/LoginSecurity no login e migra p/ Argon2id");
 
         sec(b, "ANTI-BRUTEFORCE",
                 "Lockout por IP e por CONTA (barra brute-force distribuído de vários IPs num só nick).");
@@ -370,6 +378,8 @@ public final class ProxyConfig {
         p.setProperty("hash-argon2-parallelism", "1");
         // Regra de senha
         p.setProperty("password-min-length", "8");
+        // Importação de hash legado (AuthMe/LoginSecurity) no primeiro /login
+        p.setProperty("legacy-import.enabled", "true");
         // Anti-bruteforce: lockout por IP + por CONTA (barra brute-force distribuido)
         p.setProperty("bruteforce-max-attempts", "5");
         p.setProperty("bruteforce-window-seconds", "60");

@@ -19,6 +19,7 @@ public final class AuthConfig {
     public String emailFrom;
     public String emailEncryption;
     public int emailCodeTtlMinutes;
+    public boolean legacyImportEnabled;
 
     public static AuthConfig fromMap(Map<String, Object> r) {
         AuthConfig c = new AuthConfig();
@@ -48,6 +49,7 @@ public final class AuthConfig {
         c.emailFrom = str(r, "email.smtp.from", "");
         c.emailEncryption = str(r, "email.smtp.encryption", "tls").trim().toLowerCase(Locale.ROOT);
         c.emailCodeTtlMinutes = clamp(intval(r, "email.code-ttl-minutes", 10), 1, 60);
+        c.legacyImportEnabled = boolval(r, "legacy-import.enabled", true);
         return c;
     }
 
