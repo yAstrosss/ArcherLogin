@@ -44,7 +44,15 @@ public final class AuthThrottle {
     public boolean tryAcquire(String key) {
         long now = System.currentTimeMillis();
         maybeEvict(now);
-        Bucket b = buckets.computeIfAbsent(key, k -> new Bucket());
+        Bucket b = buckets.computeIfAbsent(key, k -> {
+            // Inicializa os timestamps na criação: senão o bucket nasce com lastTouch=0 e
+            // um maybeEvict concorrente (entre este create e o synchronized abaixo) o
+            // despejaria antes do primeiro toque, perdendo a 1ª tentativa do rate-limit.
+            Bucket nb = new Bucket();
+            nb.windowStart = now;
+            nb.lastTouch = now;
+            return nb;
+        });
         synchronized (b) {
             b.lastTouch = now;
             if (now < b.lockedUntil) {
