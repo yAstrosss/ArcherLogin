@@ -70,9 +70,22 @@ public final class EmailService {
         props.put("mail.smtps.timeout", "10000");
         if ("tls".equals(enc)) {
             props.put("mail.smtp.starttls.enable", "true");
+            // STARTTLS obrigatório: se o servidor não anunciar a extensão (má config,
+            // MITM que faz stripping do 250-STARTTLS, relay comprometido), aborta em vez
+            // de cair para texto puro. O corpo carrega código de recuperação/vínculo e
+            // não pode vazar em cleartext. Relay localhost sem TLS não é suportado no
+            // modo tls (ver SETUP.md).
+            props.put("mail.smtp.starttls.required", "true");
+            // Valida a identidade do certificado do servidor (já é default no Angus 2.x,
+            // fixado explícito contra mudança de default futura ou downgrade da lib).
+            props.put("mail.smtp.ssl.checkserveridentity", "true");
+            // Piso de protocolo: recusa TLS 1.0/1.1 legados.
+            props.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
         }
         if (ssl) {
             props.put("mail.smtps.ssl.enable", "true");
+            props.put("mail.smtps.ssl.checkserveridentity", "true");
+            props.put("mail.smtps.ssl.protocols", "TLSv1.2 TLSv1.3");
         }
 
         Session session = Session.getInstance(props, new Authenticator() {

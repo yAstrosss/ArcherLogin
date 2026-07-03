@@ -124,13 +124,20 @@ email-smtp-port=587
 email-smtp-user=
 email-smtp-password=                    # PLAIN TEXT, see warning below. Gmail: use an "app password"
 email-smtp-from=
-email-smtp-encryption=tls
+email-smtp-encryption=tls               # tls (STARTTLS obrigatório) | ssl | none
 email-code-ttl-minutes=10
 ```
 
 > **Plain-text credentials:** `db-password` and `email-smtp-password` are stored in
 > **plain text** in `config.properties`. **Restrict the file permissions** (readable only
 > by the proxy user) and **do not commit** this file.
+
+> **STARTTLS obrigatório no modo `tls`:** o e-mail carrega o código de recuperação/vínculo,
+> então o modo `tls` exige STARTTLS de verdade — se o servidor SMTP não anunciar a extensão,
+> o envio **aborta** em vez de cair para texto puro (fecha o downgrade/strip attack). Um relay
+> local **sem** TLS não é suportado nesse modo; use um relay com TLS (recomendado), ou
+> `email-smtp-encryption=ssl` na porta 465. O modo aceita só TLS 1.2/1.3 e valida a identidade
+> do certificado do servidor.
 
 > Proxy-centric **does not use** `proxy-secret`/HMAC gating, the Mojang online handshake
 > + modern forwarding already prove identity on the proxy.
