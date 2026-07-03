@@ -14,13 +14,11 @@ public final class LogoutCommand implements SimpleCommand {
 
     private final AuthState authState;
     private final Messages messages;
-    private final AuthService authService;
     private final SessionService sessions;
 
-    public LogoutCommand(AuthState authState, Messages messages, AuthService authService, SessionService sessions) {
+    public LogoutCommand(AuthState authState, Messages messages, SessionService sessions) {
         this.authState = authState;
         this.messages = messages;
-        this.authService = authService;
         this.sessions = sessions;
     }
 
@@ -35,7 +33,13 @@ public final class LogoutCommand implements SimpleCommand {
         }
         authState.clear(player.getUniqueId());
         String name = AccountKey.normalize(player.getUsername());
-        authService.trySubmit(() -> sessions.revoke(name)); // delete fora da thread de comando
+        // Síncrono e ANTES do disconnect: /logout é raro e revoke é 1 delete por PK indexada
+        // (sub-ms SQLite, pooled MySQL). trySubmit (fire-and-forget) podia devolver false sob
+        // saturação do pool de auth e DERRUBAR o revoke silenciosamente — sessão sobrevivia a um
+        // /logout explícito. Rodar antes do disconnect também fecha a corrida onde um revoke
+        // assíncrono terminaria DEPOIS da desconexão, dando brecha pra um reconnect rápido do
+        // mesmo IP validar a sessão ainda presente.
+        sessions.revoke(name);
         player.disconnect(msg("logout.success"));
     }
 

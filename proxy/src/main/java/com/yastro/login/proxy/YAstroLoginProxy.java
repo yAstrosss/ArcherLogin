@@ -189,7 +189,7 @@ public final class YAstroLoginProxy {
 
         CommandManager cm = server.getCommandManager();
         CommandMeta logoutMeta = cm.metaBuilder("sair").plugin(this).build();
-        cm.register(logoutMeta, new LogoutCommand(authState, messages, authService, sessionService));
+        cm.register(logoutMeta, new LogoutCommand(authState, messages, sessionService));
         CommandMeta cpMeta = cm.metaBuilder("trocarsenha").plugin(this).build();
         cm.register(cpMeta, new ChangePasswordCommand(authService, limbo, authState, messages, config, logger));
         // /email é comando do PROXY (backend sem plugin): executa aqui, branco+tab no client.
@@ -402,7 +402,12 @@ public final class YAstroLoginProxy {
         // Sessão IP-based: reconnect recente do mesmo IP pula o limbo e vai direto pro lobby.
         String ip = player.getRemoteAddress() != null
                 ? player.getRemoteAddress().getAddress().getHostAddress() : null;
-        if (sessionService.validate(AccountKey.normalize(player.getUsername()), ip)) {
+        // IP colapsado (proxy-protocol provavelmente off atrás de um frontend) faz TODOS os
+        // jogadores caírem no mesmo IP mascarado -> sessão-por-(nick, ip) vira bypass universal.
+        // Nesse cenário não auto-loga por sessão; cai no limbo/senha normalmente. ip == null já
+        // faz validate(...) devolver false, então isCollapsed(null) só precisa ser not-collapsed.
+        boolean ipCollapsed = ip != null && collapsedIp.isCollapsed(ip, System.currentTimeMillis());
+        if (!ipCollapsed && sessionService.validate(AccountKey.normalize(player.getUsername()), ip)) {
             authState.markAuthenticated(player.getUniqueId());
             logger.info("Auto-login (sessão): {}", player.getUsername());
             authEvents.firePreLoginAsync(player, LoginType.SESSION).thenAccept(ev -> {

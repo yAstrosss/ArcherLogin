@@ -80,4 +80,25 @@ public final class CollapsedIpDetector {
                     + "adicione em ip-limit-bypass.");
         }
     }
+
+    /**
+     * Consulta (sem alterar estado: não evict, não mexe no cooldown do WARN) se {@code ip}
+     * está colapsado AGORA, usando o MESMO limiar de nicks distintos que dispara o WARN.
+     * Usado pelo gate de auto-login por sessão: sessão é chaveada por (nick, ip), então um IP
+     * colapsado (proxy-protocol provavelmente off atrás de um frontend) transforma a sessão-por-IP
+     * num bypass universal — qualquer nick com sessão salva auto-loga por qualquer conexão que
+     * caia nesse IP mascarado.
+     */
+    public synchronized boolean isCollapsed(String ip, long nowMillis) {
+        if (ip == null || bypass.contains(ip)) {
+            return false;
+        }
+        Set<String> nicks = new HashSet<>();
+        for (Entry e : window) {
+            if (nowMillis - e.time() <= windowMillis && e.ip().equals(ip)) {
+                nicks.add(e.user());
+            }
+        }
+        return nicks.size() >= distinctNickThreshold;
+    }
 }

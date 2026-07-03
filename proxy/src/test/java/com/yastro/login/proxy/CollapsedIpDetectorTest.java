@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CollapsedIpDetectorTest {
@@ -85,5 +86,53 @@ class CollapsedIpDetectorTest {
             det.observe("6.6.6.6", "bob", 1_000L + i);
         }
         assertEquals(0, warns.size());
+    }
+
+    @Test
+    void isCollapsedFalseBelowThreshold() {
+        det = make(Set.of());
+        for (int i = 0; i < THRESHOLD - 1; i++) { // 7 nicks distintos
+            det.observe("5.5.5.5", "user" + i, 1_000L);
+        }
+        assertFalse(det.isCollapsed("5.5.5.5", 1_000L));
+    }
+
+    @Test
+    void isCollapsedTrueAtThreshold() {
+        det = make(Set.of());
+        for (int i = 0; i < THRESHOLD; i++) { // 8 nicks distintos, mesmo IP
+            det.observe("5.5.5.5", "user" + i, 1_000L);
+        }
+        assertTrue(det.isCollapsed("5.5.5.5", 1_000L));
+    }
+
+    @Test
+    void isCollapsedIndependentPerIp() {
+        det = make(Set.of());
+        for (int i = 0; i < THRESHOLD; i++) {
+            det.observe("5.5.5.5", "user" + i, 1_000L);
+        }
+        assertTrue(det.isCollapsed("5.5.5.5", 1_000L));
+        assertFalse(det.isCollapsed("9.9.9.9", 1_000L));
+    }
+
+    @Test
+    void isCollapsedFalseAfterWindowExpires() {
+        det = make(Set.of());
+        for (int i = 0; i < THRESHOLD; i++) {
+            det.observe("5.5.5.5", "user" + i, 1_000L);
+        }
+        assertTrue(det.isCollapsed("5.5.5.5", 1_000L));
+        // Fora da janela: entradas expiraram do ponto de vista do "agora" consultado.
+        assertFalse(det.isCollapsed("5.5.5.5", 1_000L + WINDOW + 1));
+    }
+
+    @Test
+    void isCollapsedFalseForBypassIp() {
+        det = make(Set.of("127.0.0.1"));
+        for (int i = 0; i < THRESHOLD * 3; i++) {
+            det.observe("127.0.0.1", "user" + i, 1_000L);
+        }
+        assertFalse(det.isCollapsed("127.0.0.1", 1_000L));
     }
 }
