@@ -70,6 +70,24 @@ class ProxyConfigTest {
     }
 
     @Test
+    void seedsBedrockDefaults(@TempDir Path dir) {
+        ProxyConfig.load(dir);
+        ProxyConfig cfg = ProxyConfig.load(dir);
+        assertTrue(cfg.bedrockEnabled);
+        assertTrue(cfg.bedrockAutoLogin);
+    }
+
+    @Test
+    void overridesBedrockFlagsFromProperties(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("config.properties");
+        java.nio.file.Files.writeString(file,
+            "bedrock.enabled=false\nbedrock.auto-login=false\n");
+        ProxyConfig cfg = ProxyConfig.load(dir);
+        assertFalse(cfg.bedrockEnabled);
+        assertFalse(cfg.bedrockAutoLogin);
+    }
+
+    @Test
     void seedsAndParsesIpLimit(@TempDir Path dir) {
         ProxyConfig.load(dir); // grava defaults
         ProxyConfig cfg = ProxyConfig.load(dir);

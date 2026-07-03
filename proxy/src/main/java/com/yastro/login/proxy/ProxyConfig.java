@@ -40,6 +40,8 @@ public final class ProxyConfig {
     public boolean uiTitle = true;
     public boolean uiActionBar = true;
     public boolean uiSound = true;
+    public boolean bedrockEnabled = true;
+    public boolean bedrockAutoLogin = true;
 
     // ---- Banco (repassado pro AuthConfig) ----
     private final Map<String, Object> authRaw = new HashMap<>();
@@ -91,6 +93,8 @@ public final class ProxyConfig {
             cfg.uiTitle = Boolean.parseBoolean(props.getProperty("ui-title", "true"));
             cfg.uiActionBar = Boolean.parseBoolean(props.getProperty("ui-action-bar", "true"));
             cfg.uiSound = Boolean.parseBoolean(props.getProperty("ui-sound", "true"));
+            cfg.bedrockEnabled = Boolean.parseBoolean(props.getProperty("bedrock.enabled", "true"));
+            cfg.bedrockAutoLogin = Boolean.parseBoolean(props.getProperty("bedrock.auto-login", "true"));
 
             // hash Argon2id (custo/seguranca; clamps no AuthConfig)
             putIf(cfg.authRaw, "hash.argon2.memory-kib", props.getProperty("hash-argon2-memory-kib"));
@@ -258,6 +262,12 @@ public final class ProxyConfig {
         kv(b, v, "ui-action-bar", "mostra texto na action bar");
         kv(b, v, "ui-sound", "toca som de feedback");
 
+        sec(b, "BEDROCK (Floodgate)",
+                "Auto-login pra jogadores Bedrock via Floodgate (identidade já provada pelo XUID).",
+                "Requer o plugin Floodgate instalado no proxy; sem ele este bloco não faz nada.");
+        kv(b, v, "bedrock.enabled", "liga o suporte Bedrock (precisa do plugin Floodgate)");
+        kv(b, v, "bedrock.auto-login", "true = Bedrock entra direto; false = cai no fluxo cracked/limbo normal");
+
         sec(b, "E-MAIL (/email e /recuperar)",
                 "Vínculo e recuperação de conta por e-mail. Gmail: use uma SENHA DE APP, não a normal.",
                 "Senha em TEXTO PURO: não versione este arquivo.");
@@ -372,6 +382,9 @@ public final class ProxyConfig {
         p.setProperty("ui-title", "true");
         p.setProperty("ui-action-bar", "true");
         p.setProperty("ui-sound", "true");
+        // Bedrock (Floodgate): auto-login por XUID já provado; requer o plugin Floodgate.
+        p.setProperty("bedrock.enabled", "true");
+        p.setProperty("bedrock.auto-login", "true");
         // Hash Argon2id (baseline OWASP; pico de RAM ~ nucleos x memory-kib, NAO jogadores x memory-kib).
         p.setProperty("hash-argon2-memory-kib", "19456");
         p.setProperty("hash-argon2-iterations", "2");

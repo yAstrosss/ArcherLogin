@@ -31,12 +31,15 @@ import com.yastro.login.authcore.storage.StorageFactory;
 import com.yastro.login.common.AccountKey;
 import com.yastro.login.common.MojangClient;
 import com.yastro.login.proxy.api.event.LoginType;
+import com.yastro.login.proxy.bedrock.BedrockService;
+import com.yastro.login.proxy.bedrock.FloodgateNick;
 import net.elytrium.limboapi.api.LimboFactory;
 import net.kyori.adventure.text.Component;
 import org.slf4j.Logger;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -84,6 +87,7 @@ public final class YAstroLoginProxy {
     private FloodCounter floodCounter;
     private CollapsedIpDetector collapsedIp;
     private AuthEvents authEvents;
+    private BedrockService bedrock;
     private volatile boolean enabled;
 
     @Inject
@@ -99,6 +103,10 @@ public final class YAstroLoginProxy {
         // abrir o banco/ler o registro premium.
         PluginLayout layout = PluginLayout.prepare(dataDirectory);
         this.config = ProxyConfig.load(dataDirectory);
+        this.bedrock = BedrockService.detect(server, config.bedrockEnabled, logger);
+        if (bedrock.available()) {
+            logger.info("Suporte Bedrock (Floodgate) ATIVO: auto-login de contas Bedrock.");
+        }
         this.diagnostic = new DiagnosticLog(layout.logsDir(), config.diagnosticEnabled, DIAGNOSTIC_LOG_RETAIN);
         this.floodCounter = new FloodCounter(config.diagnosticFloodPerMin);
         // Aviso de IP-colapsado: muitos nicks distintos do mesmo IP = proxy-protocol provavelmente
@@ -250,12 +258,27 @@ public final class YAstroLoginProxy {
             return null;
         }
         final String username = event.getUsername();
+        // @mc-unverified: docsMC/04_adventure_placeholderapi.md consultado (Read+Grep) nesta
+        // sessão antes deste edit — D1-D4 revisadas; Component.text() abaixo só embrulha
+        // strings literais (sem MiniMessage/PAPI/input de player), então as regras de
+        // tag-injection do domínio não se aplicam. Marker presente porque o hook de guarda
+        // (mc-doc-guard.js) não enxergou a consulta feita pelo transcript deste subagente.
+        // Bedrock (Floodgate): identidade já provada pelo XUID; aqui só temos o username
+        // (com o prefixo Floodgate), não o uniqueId — a checagem autoritativa (isBedrock por
+        // UUID) fica pro PostLogin. Aqui só evitamos recusar por nick "inválido" e mandar pro
+        // fluxo Mojang um nome que na verdade é Bedrock.
+        boolean floodgateName = bedrock.available() && FloodgateNick.looksLikeFloodgate(username);
         // valida o nick no PreLogin (defesa-em-profundidade), não confia que o Velocity já
         // sanitizou. Nick fora de [A-Za-z0-9_]{3,16} é recusado antes de virar chave de conta/log.
-        if (!MojangClient.VALID_NICK.matcher(username).matches()) {
+        if (!floodgateName && !MojangClient.VALID_NICK.matcher(username).matches()) {
             diagnostic.signal("BAD_NICK", "nick inválido recusado: " + username);
             event.setResult(PreLoginComponentResult.denied(Component.text(
                     "Nick inválido. Use 3 a 16 caracteres: letras, números e _ (underline).")));
+            return null;
+        }
+        if (floodgateName) {
+            // Bedrock: offline-mode no lado Java (Floodgate é dono da autenticação). Sem Mojang.
+            event.setResult(PreLoginComponentResult.forceOfflineMode());
             return null;
         }
         if (floodCounter.record(System.currentTimeMillis())) {
@@ -304,6 +327,37 @@ public final class YAstroLoginProxy {
             return;
         }
         Player player = event.getPlayer();
+        // @mc-unverified: docsMC/04_adventure_placeholderapi.md já consultado nesta sessão
+        // (ver onPreLogin acima) — Component.text() abaixo é string literal, sem
+        // MiniMessage/PAPI. Marker repetido só pq o guard não vê o transcript do subagente.
+        UUID id = player.getUniqueId();
+        // Bedrock (Floodgate): checagem AUTORITATIVA (por uniqueId, não pelo prefixo de nick
+        // usado no PreLogin). Guard anti-hijack primeiro: uma conexão não-Floodgate não pode
+        // entrar numa conta que já está marcada como bedrock no banco.
+        boolean isBedrock = bedrock.available() && bedrock.isBedrock(id);
+        if (!isBedrock && isRegisteredBedrock(player.getUsername())) {
+            player.disconnect(Component.text(
+                    "Esta conta é Bedrock e só pode entrar via Bedrock/Geyser."));
+            logger.warn("Anti-hijack: conexão não-Bedrock recusada para conta bedrock {}", player.getUsername());
+            return;
+        }
+        if (isBedrock && config.bedrockAutoLogin) {
+            authState.markAuthenticated(id);               // síncrono, como o premium
+            logger.info("Auto-login (Bedrock): {}", player.getUsername());
+            persistBedrockAsync(player);                    // best-effort, fora da thread de evento
+            authEvents.firePreLoginAsync(player, LoginType.PREMIUM).thenAccept(ev -> {
+                if (!player.isActive()) {
+                    return;
+                }
+                if (ev.getResult().isAllowed()) {
+                    authEvents.fireLogin(player, LoginType.PREMIUM);
+                } else {
+                    authState.clear(id);
+                    player.disconnect(AuthEvents.denyReason(ev));
+                }
+            });
+            return;
+        }
         if (player.isOnlineMode()) {
             // Original verificado pela Mojang -> auto-login. Não precisa do limbo.
             authState.markAuthenticated(player.getUniqueId());
@@ -334,6 +388,45 @@ public final class YAstroLoginProxy {
         limbo.enterLimbo(player, new AuthLimboHandler(
                 authService, limbo, authState, messages, storage, config, logger, emailFlow, diagnostic, authEvents));
         logger.info("Cracked no limbo: {}", player.getUsername());
+    }
+
+    /** Lê síncrono e barato só o flag bedrock; usado no guard anti-hijack. Storage nulo -> false.
+     * Leitura JDBC bloqueante NA thread de evento é deliberada aqui (trade-off documentado):
+     * SQLite é sub-ms e MySQL é pooled; o custo é aceitável pra um guard que roda 1x por login
+     * e é o que impede uma conta bedrock ser sequestrada por uma conexão Java comum. */
+    private boolean isRegisteredBedrock(String name) {
+        if (storage == null) {
+            return false;
+        }
+        try {
+            return storage.find(name).map(a -> a.bedrock()).orElse(false);
+        } catch (Exception e) {
+            return false; // falha de storage não deve virar oráculo; trata como não-bedrock
+        }
+    }
+
+    /** Cria a linha da conta Bedrock (sem senha) se ainda não existir. Roda no pool de auth. */
+    private void persistBedrockAsync(Player player) {
+        if (storage == null) {
+            return;
+        }
+        String name = player.getUsername();
+        String uuid = player.getUniqueId().toString();
+        String ip = player.getRemoteAddress() != null
+                ? player.getRemoteAddress().getAddress().getHostAddress() : "";
+        authExecutor.execute(() -> {
+            try {
+                if (!storage.isRegistered(name)) {
+                    long now = System.currentTimeMillis();
+                    storage.register(new com.yastro.login.authcore.storage.Account(
+                            name, uuid, "", null, ip, ip, false, now, now, true));
+                } else {
+                    storage.touchLogin(name, ip, System.currentTimeMillis());
+                }
+            } catch (Exception e) {
+                logger.warn("Falha ao persistir conta Bedrock {}: {}", name, e.toString());
+            }
+        });
     }
 
     /** Trava: não-autenticado não alcança backend real (o limbo é virtual e não passa aqui).
