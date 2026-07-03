@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
         version = BuildConstants.VERSION,
         description = "Auth proxy-cêntrica (Velocity + limbo). Original auto-login; cracked no limbo.",
         authors = {"yAstro"},
-        dependencies = {@Dependency(id = "limboapi")}
+        dependencies = {@Dependency(id = "limboapi"), @Dependency(id = "floodgate", optional = true)}
 )
 public final class YAstroLoginProxy {
 
@@ -106,6 +106,10 @@ public final class YAstroLoginProxy {
         this.bedrock = BedrockService.detect(server, config.bedrockEnabled, logger);
         if (bedrock.available()) {
             logger.info("Suporte Bedrock (Floodgate) ATIVO: auto-login de contas Bedrock.");
+        }
+        if (!config.bedrockAutoLogin) {
+            logger.warn("bedrock.auto-login=false: modo \"exigir senha pro Bedrock\" ainda NÃO "
+                    + "implementado nesta versão. Contas Bedrock continuam com auto-login ativo.");
         }
         this.diagnostic = new DiagnosticLog(layout.logsDir(), config.diagnosticEnabled, DIAGNOSTIC_LOG_RETAIN);
         this.floodCounter = new FloodCounter(config.diagnosticFloodPerMin);
@@ -326,21 +330,32 @@ public final class YAstroLoginProxy {
         // Bedrock (Floodgate): checagem AUTORITATIVA (por uniqueId, não pelo prefixo de nick
         // usado no PreLogin). Guard anti-hijack: o namespace de prefixo Floodgate é reservado
         // pra conexões Bedrock autoritativas. Uma conexão não-Bedrock é recusada se a conta já
-        // está marcada bedrock no banco (isRegisteredBedrock, incondicional — protege mesmo com
-        // Floodgate temporariamente fora do ar) OU se o nick tem cara de prefixo Floodgate e o
-        // Floodgate está disponível (reserva o namespace pra impedir que um cliente Java registre
-        // ".Steve" antes do Bedrock real chegar). Nick Java de verdade nunca começa com caractere
-        // fora de [A-Za-z0-9_] (regra Mojang), então isso só barra spoof, nunca jogador legítimo.
+        // está marcada bedrock no banco (isRegisteredBedrock) OU se o nick tem cara de prefixo
+        // Floodgate (reserva o namespace pra impedir que um cliente Java registre ".Steve" antes
+        // do Bedrock real chegar). Nick Java de verdade nunca começa com caractere fora de
+        // [A-Za-z0-9_] (regra Mojang), então isso só barra spoof, nunca jogador legítimo.
+        // Todo o guard (leitura de banco incluída) é gated em bedrock.available(): é seguro pular
+        // com Floodgate fora do ar porque uma conta bedrock é persistida com password_hash VAZIO
+        // e PasswordHasher.verify recusa hash vazio na hora — uma linha bedrock nunca passa por
+        // senha, com ou sem este guard; ele é UX + defesa-em-profundidade, só relevante enquanto
+        // o Floodgate está de pé. E com Floodgate fora do ar, ".steve" já cai no VALID_NICK do
+        // PreLogin (nick fora de [A-Za-z0-9_]{3,16} é recusado antes daqui), então squatting
+        // continua fechado. Isso também evita 1 leitura JDBC bloqueante na thread de evento por
+        // CADA login Java quando não há Floodgate instalado.
         boolean isBedrock = bedrock.available() && bedrock.isBedrock(id);
-        if (!isBedrock
+        if (!isBedrock && bedrock.available()
                 && (isRegisteredBedrock(player.getUsername())
-                    || (bedrock.available() && FloodgateNick.looksLikeFloodgate(player.getUsername())))) {
+                    || FloodgateNick.looksLikeFloodgate(player.getUsername()))) {
             player.disconnect(Component.text(
                     "Esta conta é Bedrock e só pode entrar via Bedrock/Geyser."));
             logger.warn("Anti-hijack: conexão não-Bedrock recusada para conta bedrock {}", player.getUsername());
             return;
         }
-        if (isBedrock && config.bedrockAutoLogin) {
+        if (isBedrock) {
+            // Sempre auto-login + sempre persiste bedrock=true (independe de bedrockAutoLogin):
+            // conta Bedrock não tem senha, então cair no limbo/cracked travaria o jogador; e uma
+            // linha nunca marcada bedrock=true no banco escapa do guard anti-hijack acima. O modo
+            // "exigir senha pro Bedrock" (bedrockAutoLogin=false) ainda não existe; ver aviso no onInit.
             authState.markAuthenticated(id);               // síncrono, como o premium
             logger.info("Auto-login (Bedrock): {}", player.getUsername());
             persistBedrockAsync(player);                    // best-effort, fora da thread de evento
