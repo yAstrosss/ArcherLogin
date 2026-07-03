@@ -8,6 +8,8 @@ plugins {
 
 repositories {
     maven { url = uri('https://maven.elytrium.net/repo/') }
+    maven { url = uri('https://repo.opencollab.dev/maven-releases/') }
+    maven { url = uri('https://repo.opencollab.dev/maven-snapshots/') }
 }
 
 // Fonte única da versão: gera BuildConstants.java a partir de project.version (vinda do
@@ -27,6 +29,11 @@ dependencies {
     annotationProcessor 'com.velocitypowered:velocity-api:3.5.0-SNAPSHOT'
 
     compileOnly 'net.elytrium.limboapi:api:1.1.27'
+
+    // Floodgate é dependência soft (Feature A / Bedrock): compileOnly pra não shadar no jar,
+    // detect() em BedrockService cai pra Noop quando o plugin não está presente em runtime.
+    compileOnly 'org.geysermc.floodgate:api:2.2.4-SNAPSHOT'
+    testImplementation 'org.geysermc.floodgate:api:2.2.4-SNAPSHOT'
 
     implementation project(':auth-core')
     implementation project(':common')
