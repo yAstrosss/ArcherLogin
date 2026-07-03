@@ -9,5 +9,8 @@ public enum LoginType {
     PASSWORD,
 
     /** Auto-login de conta original verificada pela Mojang (sem senha). */
-    PREMIUM
+    PREMIUM,
+
+    /** Auto-login por sessão IP persistente (reconnect recente do mesmo IP, cracked, pula o limbo). */
+    SESSION
 }

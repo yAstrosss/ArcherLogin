@@ -26,6 +26,8 @@ import com.yastro.login.authcore.config.Messages;
 import com.yastro.login.authcore.email.EmailCodes;
 import com.yastro.login.authcore.email.EmailService;
 import com.yastro.login.authcore.hash.PasswordHasher;
+import com.yastro.login.authcore.session.SessionService;
+import com.yastro.login.authcore.session.SessionStorage;
 import com.yastro.login.authcore.storage.AccountStorage;
 import com.yastro.login.authcore.storage.StorageFactory;
 import com.yastro.login.common.AccountKey;
@@ -77,6 +79,7 @@ public final class YAstroLoginProxy {
     private ProxyConfig config;
     private PremiumRegistry premiumRegistry;
     private AccountStorage storage;
+    private SessionService sessionService;
     private LimboService limbo;
     private AuthService authService;
     private ExecutorService authExecutor;
@@ -150,6 +153,10 @@ public final class YAstroLoginProxy {
                     + "até o banco voltar.", authConfig.dbType, e);
             this.storage = null;
         }
+        // storage é JdbcStorage (SqliteStorage/MySqlStorage), que também é SessionStorage.
+        SessionStorage sessionStorage = (storage instanceof SessionStorage ss) ? ss : null;
+        this.sessionService = new SessionService(sessionStorage, System::currentTimeMillis,
+                authConfig.sessionEnabled, authConfig.sessionTtlMinutes);
 
         this.limbo = new LimboService(server, logger, factory, config);
         this.limbo.init();
@@ -171,18 +178,18 @@ public final class YAstroLoginProxy {
         int poolSize = Math.max(2, authConfig.argonParallelism * 2);
         this.authExecutor = AuthService.newExecutor(poolSize, config.authQueueCapacity);
         this.authService = new AuthService(storage, hasher, throttle, accountThrottle,
-                authConfig, config.ipLimitPolicy(), authExecutor);
+                authConfig, config.ipLimitPolicy(), authExecutor, sessionService);
         // Barramento de eventos públicos (api.event.*): plugins de 3º reagem a/vetam auth.
         this.authEvents = new AuthEvents(server, logger);
 
         // E-mail (vínculo /email + recuperação /recover). EmailService usa java.util.logging.
         this.emailService = new EmailService(authConfig, java.util.logging.Logger.getLogger("ArcherLogin-Email"));
         EmailCodes emailCodes = new EmailCodes(authConfig.emailCodeTtlMinutes * 60_000L, 60_000L);
-        this.emailFlow = new EmailFlow(emailService, emailCodes, storage, hasher, messages, authConfig);
+        this.emailFlow = new EmailFlow(emailService, emailCodes, storage, hasher, messages, authConfig, sessionService);
 
         CommandManager cm = server.getCommandManager();
         CommandMeta logoutMeta = cm.metaBuilder("sair").plugin(this).build();
-        cm.register(logoutMeta, new LogoutCommand(authState, messages));
+        cm.register(logoutMeta, new LogoutCommand(authState, messages, authService, sessionService));
         CommandMeta cpMeta = cm.metaBuilder("trocarsenha").plugin(this).build();
         cm.register(cpMeta, new ChangePasswordCommand(authService, limbo, authState, messages, config, logger));
         // /email é comando do PROXY (backend sem plugin): executa aqui, branco+tab no client.
@@ -392,7 +399,26 @@ public final class YAstroLoginProxy {
             });
             return;
         }
-        // Cracked: precisa do limbo. Se indisponível, desconecta (fail-closed, sem estado mudo).
+        // Sessão IP-based: reconnect recente do mesmo IP pula o limbo e vai direto pro lobby.
+        String ip = player.getRemoteAddress() != null
+                ? player.getRemoteAddress().getAddress().getHostAddress() : null;
+        if (sessionService.validate(AccountKey.normalize(player.getUsername()), ip)) {
+            authState.markAuthenticated(player.getUniqueId());
+            logger.info("Auto-login (sessão): {}", player.getUsername());
+            authEvents.firePreLoginAsync(player, LoginType.SESSION).thenAccept(ev -> {
+                if (!player.isActive()) {
+                    return;
+                }
+                if (ev.getResult().isAllowed()) {
+                    authEvents.fireLogin(player, LoginType.SESSION);
+                } else {
+                    authState.clear(player.getUniqueId());
+                    player.disconnect(AuthEvents.denyReason(ev));
+                }
+            });
+            return;
+        }
+        // Cracked sem sessão: precisa do limbo. Se indisponível, desconecta (fail-closed).
         if (limbo == null || !limbo.isReady()) {
             player.disconnect(Component.text(
                     "Autenticação indisponível no momento. Tente mais tarde."));

@@ -6,6 +6,7 @@ import com.yastro.login.authcore.config.Messages;
 import com.yastro.login.authcore.email.EmailCodes;
 import com.yastro.login.authcore.email.EmailService;
 import com.yastro.login.authcore.hash.PasswordHasher;
+import com.yastro.login.authcore.session.SessionService;
 import com.yastro.login.authcore.storage.Account;
 import com.yastro.login.authcore.storage.AccountStorage;
 import com.yastro.login.common.AccountKey;
@@ -41,12 +42,13 @@ public final class EmailFlow {
     private final Messages messages;
     private final AuthConfig cfg;
     private final AuthThrottle emailThrottle; // pedidos de código por IP (anti-bomb)
+    private final SessionService sessions;
     /** Máx. 1 operação de e-mail em voo por jogador: barra que um único jogador encha o
      * pool de auth com N tasks de /email|/recuperar (DoS leve do pool). Por nome (lowercase). */
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
 
     public EmailFlow(EmailService emailService, EmailCodes emailCodes, AccountStorage storage,
-                     PasswordHasher hasher, Messages messages, AuthConfig cfg) {
+                     PasswordHasher hasher, Messages messages, AuthConfig cfg, SessionService sessions) {
         this.emailService = emailService;
         this.emailCodes = emailCodes;
         this.storage = storage;
@@ -54,6 +56,7 @@ public final class EmailFlow {
         this.messages = messages;
         this.cfg = cfg;
         this.emailThrottle = new AuthThrottle(5, 300, 60); // 5 pedidos / 5min por IP
+        this.sessions = sessions;
     }
 
     /** Reserva o slot (1-em-voo) do jogador. false = já tem uma operação de e-mail rodando. */
@@ -162,6 +165,7 @@ public final class EmailFlow {
                 return;
             }
             storage.updatePassword(name, hasher.hash(newPassword));
+            sessions.revoke(AccountKey.normalize(name));
             fb.accept(AuthOutcome.ok("recover.success"));
         } catch (Exception e) {
             fb.accept(AuthOutcome.fail("error.internal"));

@@ -3,6 +3,7 @@ package com.yastro.login.proxy;
 import com.yastro.login.authcore.auth.AuthThrottle;
 import com.yastro.login.authcore.config.AuthConfig;
 import com.yastro.login.authcore.hash.PasswordHasher;
+import com.yastro.login.authcore.session.SessionService;
 import com.yastro.login.authcore.storage.Account;
 import com.yastro.login.authcore.storage.AccountStorage;
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,11 @@ class AuthServiceTest {
         @Override public void close() { }
     }
 
+    /** Sessão desligada (storage nulo): create/validate/revoke viram no-op, não interfere nos testes de AuthService. */
+    private static SessionService noopSessions() {
+        return new SessionService(null, System::currentTimeMillis, false, 30);
+    }
+
     private AuthService service(AccountStorage storage) {
         return service(storage, IpLimitPolicy.disabled());
     }
@@ -51,7 +57,7 @@ class AuthServiceTest {
         PasswordHasher hasher = new PasswordHasher(cfg.argonMemoryKib, cfg.argonIterations, cfg.argonParallelism);
         AuthThrottle throttle = new AuthThrottle(cfg.maxAttempts, cfg.attemptWindowSeconds, cfg.lockoutSeconds);
         AuthThrottle accountThrottle = new AuthThrottle(cfg.accountMaxAttempts, cfg.attemptWindowSeconds, cfg.accountLockoutSeconds);
-        return new AuthService(storage, hasher, throttle, accountThrottle, cfg, ipLimit, Runnable::run);
+        return new AuthService(storage, hasher, throttle, accountThrottle, cfg, ipLimit, Runnable::run, noopSessions());
     }
 
     @Test
@@ -215,7 +221,7 @@ class AuthServiceTest {
                 new PasswordHasher(cfg.argonMemoryKib, cfg.argonIterations, cfg.argonParallelism),
                 new AuthThrottle(cfg.maxAttempts, cfg.attemptWindowSeconds, cfg.lockoutSeconds),
                 new AuthThrottle(cfg.accountMaxAttempts, cfg.attemptWindowSeconds, cfg.accountLockoutSeconds),
-                cfg, IpLimitPolicy.disabled(), ex);
+                cfg, IpLimitPolicy.disabled(), ex, noopSessions());
         java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch hold = new java.util.concurrent.CountDownLatch(1);
         try {

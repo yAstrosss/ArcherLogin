@@ -3,6 +3,7 @@ package com.yastro.login.proxy;
 import com.yastro.login.authcore.auth.AuthThrottle;
 import com.yastro.login.authcore.config.AuthConfig;
 import com.yastro.login.authcore.hash.PasswordHasher;
+import com.yastro.login.authcore.session.SessionService;
 import com.yastro.login.authcore.storage.Account;
 import com.yastro.login.authcore.storage.AccountStorage;
 import com.yastro.login.common.AccountKey;
@@ -36,9 +37,11 @@ public final class AuthService {
     private final AuthConfig cfg;
     private final IpLimitPolicy ipLimit;
     private final Executor executor;
+    private final SessionService sessions;
 
     public AuthService(AccountStorage storage, PasswordHasher hasher, AuthThrottle throttle,
-                       AuthThrottle accountThrottle, AuthConfig cfg, IpLimitPolicy ipLimit, Executor executor) {
+                       AuthThrottle accountThrottle, AuthConfig cfg, IpLimitPolicy ipLimit, Executor executor,
+                       SessionService sessions) {
         this.storage = storage;
         this.hasher = hasher;
         this.throttle = throttle;
@@ -46,6 +49,7 @@ public final class AuthService {
         this.cfg = cfg;
         this.ipLimit = ipLimit;
         this.executor = executor;
+        this.sessions = sessions;
     }
 
     public boolean storageAvailable() {
@@ -121,6 +125,7 @@ public final class AuthService {
             } catch (Exception ignored) {
                 // login válido mesmo se o touch/rehash falhar; não bloquear o jogador
             }
+            sessions.create(accountKey, ip);
             // NÃO limpar o balde por IP no sucesso, em NAT/CGNAT compartilhado isso zeraria
             // o contador de brute-force de TODOS no mesmo IP (um login bom da vítima destravaria o
             // atacante). A janela por IP é curta e expira sozinha. O balde por CONTA pode limpar
@@ -200,6 +205,7 @@ public final class AuthService {
                 return AuthOutcome.fail("admin.not-found", "name", name);
             }
             storage.updatePassword(name, hasher.hash(newPass));
+            sessions.revoke(AccountKey.normalize(name));
             return AuthOutcome.ok("admin.passadmin.success", "name", name);
         } catch (Exception e) {
             return AuthOutcome.fail("error.internal");
@@ -239,6 +245,7 @@ public final class AuthService {
             } catch (Exception e) {
                 return AuthOutcome.fail("error.internal");
             }
+            sessions.revoke(AccountKey.normalize(a.name()));
             throttle.clear(ip);
             return AuthOutcome.ok("changepass.success");
         } finally {
