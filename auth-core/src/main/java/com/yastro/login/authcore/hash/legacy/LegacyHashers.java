@@ -10,8 +10,9 @@ public final class LegacyHashers {
     public static List<LegacyVerifier> defaultSet() {
         return List.of(
                 new AuthMeSha256Verifier(),
-                new AuthMePbkdf2Verifier()
-                // B3 adiciona md5, sha512 aqui.
+                new AuthMePbkdf2Verifier(),
+                new AuthMeMd5Verifier(),
+                new AuthMeSha512Verifier()
         );
     }
 
