@@ -41,7 +41,7 @@ dependencies {
 }
 
 shadowJar {
-    archiveBaseName = 'yAstroLogin'
+    archiveBaseName = 'ArcherLogin'
     archiveClassifier = ''
     archiveVersion = ''
     relocate 'org.yaml.snakeyaml', 'com.yastro.login.lib.snakeyaml'
