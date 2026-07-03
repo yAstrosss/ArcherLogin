@@ -9,8 +9,9 @@ public final class LegacyHashers {
     /** Conjunto padrão (AuthMe family). Ordem = prioridade de detecção. */
     public static List<LegacyVerifier> defaultSet() {
         return List.of(
-                new AuthMeSha256Verifier()
-                // B2/B3 adicionam pbkdf2, md5, sha512 aqui.
+                new AuthMeSha256Verifier(),
+                new AuthMePbkdf2Verifier()
+                // B3 adiciona md5, sha512 aqui.
         );
     }
 
