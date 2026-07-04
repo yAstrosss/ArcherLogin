@@ -326,11 +326,13 @@ public final class YAstroLoginProxy {
         );
     }
 
-    /** Roteamento no login: premium -> auto-login + lobby; cracked -> preso no limbo. */
+    /** Roteamento no login: premium -> auto-login + lobby; cracked -> valida sessão (JDBC) FORA
+     * da thread de evento via EventTask e cai no limbo se não houver sessão. Retornar um EventTask
+     * segura o roteamento inicial do jogador até a decisão resolver (sem bloquear a thread de evento). */
     @Subscribe
-    public void onPostLogin(PostLoginEvent event) {
+    public EventTask onPostLogin(PostLoginEvent event) {
         if (!enabled) {
-            return;
+            return null;
         }
         Player player = event.getPlayer();
         UUID id = player.getUniqueId();
@@ -356,7 +358,7 @@ public final class YAstroLoginProxy {
             player.disconnect(Component.text(
                     "Esta conta é Bedrock e só pode entrar via Bedrock/Geyser."));
             logger.warn("Anti-hijack: conexão não-Bedrock recusada para conta bedrock {}", player.getUsername());
-            return;
+            return null;
         }
         if (isBedrock) {
             // Sempre auto-login + sempre persiste bedrock=true (independe de bedrockAutoLogin):
@@ -377,7 +379,7 @@ public final class YAstroLoginProxy {
                     player.disconnect(AuthEvents.denyReason(ev));
                 }
             });
-            return;
+            return null;
         }
         if (player.isOnlineMode()) {
             // Original verificado pela Mojang -> auto-login. Não precisa do limbo.
@@ -397,17 +399,33 @@ public final class YAstroLoginProxy {
                     player.disconnect(AuthEvents.denyReason(ev));
                 }
             });
-            return;
+            return null;
         }
-        // Sessão IP-based: reconnect recente do mesmo IP pula o limbo e vai direto pro lobby.
-        String ip = player.getRemoteAddress() != null
+        // Cracked: decisão sessão-vs-limbo depende de uma consulta JDBC (validate). Roda no pool
+        // de auth, NÃO na thread de evento (evita bloquear até o timeout do pool sob carga). O
+        // EventTask retornado segura o roteamento inicial até resolver; default fail-closed = limbo.
+        final String ip = player.getRemoteAddress() != null
                 ? player.getRemoteAddress().getAddress().getHostAddress() : null;
-        // IP colapsado (proxy-protocol provavelmente off atrás de um frontend) faz TODOS os
-        // jogadores caírem no mesmo IP mascarado -> sessão-por-(nick, ip) vira bypass universal.
-        // Nesse cenário não auto-loga por sessão; cai no limbo/senha normalmente. ip == null já
-        // faz validate(...) devolver false, então isCollapsed(null) só precisa ser not-collapsed.
+        try {
+            return EventTask.resumeWhenComplete(java.util.concurrent.CompletableFuture.runAsync(
+                    () -> routeCrackedBySession(player, ip), authExecutor));
+        } catch (java.util.concurrent.RejectedExecutionException poolFull) {
+            // pool saturado: decide síncrono na thread de evento (fail-closed, comportamento antigo).
+            routeCrackedBySession(player, ip);
+            return null;
+        }
+    }
+
+    /** Valida a sessão IP-based (JDBC) e roteia: sessão válida -> auto-login + lobby; senão -> limbo.
+     * IP colapsado (proxy-protocol provavelmente off atrás de um frontend) faz TODOS caírem no mesmo
+     * IP mascarado -> sessão-por-(nick, ip) vira bypass universal; nesse caso não auto-loga por sessão.
+     * ip == null já faz validate(...) devolver false. Roda no pool de auth (chamado via EventTask). */
+    private void routeCrackedBySession(Player player, String ip) {
         boolean ipCollapsed = ip != null && collapsedIp.isCollapsed(ip, System.currentTimeMillis());
         if (!ipCollapsed && sessionService.validate(AccountKey.normalize(player.getUsername()), ip)) {
+            if (!player.isActive()) {
+                return;
+            }
             authState.markAuthenticated(player.getUniqueId());
             logger.info("Auto-login (sessão): {}", player.getUsername());
             authEvents.firePreLoginAsync(player, LoginType.SESSION).thenAccept(ev -> {
@@ -421,6 +439,9 @@ public final class YAstroLoginProxy {
                     player.disconnect(AuthEvents.denyReason(ev));
                 }
             });
+            return;
+        }
+        if (!player.isActive()) {
             return;
         }
         // Cracked sem sessão: precisa do limbo. Se indisponível, desconecta (fail-closed).
