@@ -70,13 +70,59 @@ public final class MySqlStorage extends JdbcStorage {
                 + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
         try (Statement st = c.createStatement()) {
             st.execute(ddl);
+        }
+        ensureSessionsSchema(c);
+        ensureBedrockColumn(c);
+    }
+
+    /** Cria a tabela de sessões no schema IP-based. Se já existir com shape ANTIGO (sem a coluna
+     * {@code ip} — ex.: tabela token-based de um experimento anterior), {@code CREATE TABLE IF NOT
+     * EXISTS} seria no-op e o INSERT de sessão falharia pra sempre. Sessão é cache efêmero (TTL),
+     * dropar+recriar é seguro. Índice em {@code expires_at} embutido no DDL (poda sem full-scan). */
+    private void ensureSessionsSchema(Connection c) throws SQLException {
+        boolean exists;
+        boolean hasIp;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() "
+                        + "AND table_name = ?")) {
+            ps.setString(1, SESSIONS);
+            java.util.Set<String> cols = new java.util.HashSet<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    cols.add(rs.getString(1).toLowerCase(java.util.Locale.ROOT));
+                }
+            }
+            exists = !cols.isEmpty();
+            hasIp = cols.contains("ip");
+        }
+        try (Statement st = c.createStatement()) {
+            if (exists && !hasIp) {
+                st.execute("DROP TABLE " + SESSIONS);
+            }
             st.execute("CREATE TABLE IF NOT EXISTS " + SESSIONS + " ("
                     + "name_lower VARCHAR(16) PRIMARY KEY,"
                     + "ip VARCHAR(45) NOT NULL,"
-                    + "expires_at BIGINT NOT NULL"
+                    + "expires_at BIGINT NOT NULL,"
+                    + "INDEX idx_sess_exp (expires_at)"
                     + ") CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
         }
-        ensureBedrockColumn(c);
+        // MySQL não tem CREATE INDEX IF NOT EXISTS: o índice embutido acima só nasce quando a
+        // tabela é criada. Uma tabela ip pré-existente (criada por um build sem o índice) NÃO
+        // recebe o índice via CREATE TABLE IF NOT EXISTS (no-op). Adiciona guardado por catálogo.
+        boolean hasIdx;
+        try (PreparedStatement ps = c.prepareStatement(
+                "SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() "
+                        + "AND table_name = ? AND index_name = 'idx_sess_exp'")) {
+            ps.setString(1, SESSIONS);
+            try (ResultSet rs = ps.executeQuery()) {
+                hasIdx = rs.next();
+            }
+        }
+        if (!hasIdx) {
+            try (Statement st = c.createStatement()) {
+                st.execute("CREATE INDEX idx_sess_exp ON " + SESSIONS + " (expires_at)");
+            }
+        }
     }
 
     /** Migracao idempotente: adiciona a coluna bedrock em bancos criados antes da task A1. */

@@ -62,12 +62,39 @@ public final class SqliteStorage extends JdbcStorage {
             st.execute(ddl);
             st.execute("CREATE INDEX IF NOT EXISTS idx_" + TABLE + "_regip ON "
                     + TABLE + " (reg_ip)");
+        }
+        ensureSessionsSchema(c);
+        ensureBedrockColumn(c);
+    }
+
+    /** Cria a tabela de sessões no schema IP-based. Se já existir com shape ANTIGO (sem a coluna
+     * {@code ip} — ex.: uma tabela token-based de um experimento anterior), o {@code CREATE TABLE
+     * IF NOT EXISTS} seria no-op e o INSERT de sessão falharia silenciosamente pra sempre. Sessão é
+     * cache efêmero (TTL), então dropar+recriar é seguro (jogadores logam de novo uma vez). Índice
+     * em {@code expires_at} pra a poda de expiradas não ser full-scan. */
+    private void ensureSessionsSchema(Connection c) throws SQLException {
+        boolean exists = false;
+        boolean hasIp = false;
+        try (Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery("PRAGMA table_info(" + SESSIONS + ")")) {
+            while (rs.next()) {
+                exists = true;
+                if ("ip".equalsIgnoreCase(rs.getString("name"))) {
+                    hasIp = true;
+                }
+            }
+        }
+        try (Statement st = c.createStatement()) {
+            if (exists && !hasIp) {
+                st.execute("DROP TABLE " + SESSIONS);
+            }
             st.execute("CREATE TABLE IF NOT EXISTS " + SESSIONS + " ("
                     + "name_lower TEXT PRIMARY KEY,"
                     + "ip TEXT NOT NULL,"
                     + "expires_at INTEGER NOT NULL)");
+            st.execute("CREATE INDEX IF NOT EXISTS idx_" + SESSIONS + "_exp ON "
+                    + SESSIONS + " (expires_at)");
         }
-        ensureBedrockColumn(c);
     }
 
     /** Migracao idempotente: adiciona a coluna bedrock em bancos criados antes da task A1. */
