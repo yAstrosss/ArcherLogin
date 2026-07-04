@@ -3,6 +3,7 @@ package com.yastro.login.proxy;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
@@ -33,6 +34,10 @@ public final class CollapsedIpDetector {
     private final Consumer<String> warn;
 
     private final ArrayDeque<Entry> window = new ArrayDeque<>();
+    // Colapso STICKY: um IP que já disparou o limiar fica marcado colapsado até o operador
+    // reiniciar/reconfigurar. Fecha o furo onde um vale de tráfego (a janela deslizante cai
+    // abaixo do limiar) reabriria o auto-login por sessão num deployment genuinamente colapsado.
+    private final Set<String> stickyCollapsed = ConcurrentHashMap.newKeySet();
     private boolean warned = false;
     private long lastWarn = 0L;
 
@@ -69,6 +74,9 @@ public final class CollapsedIpDetector {
             }
         }
         // !warned cobre o 1o aviso sem aritmética de sentinela (evita overflow com now pequeno).
+        if (nicks.size() >= distinctNickThreshold) {
+            stickyCollapsed.add(ip); // uma vez colapsado, permanece (não reabre em vale de tráfego)
+        }
         if (nicks.size() >= distinctNickThreshold && (!warned || now - lastWarn > warnCooldownMillis)) {
             warned = true;
             lastWarn = now;
@@ -92,6 +100,9 @@ public final class CollapsedIpDetector {
     public synchronized boolean isCollapsed(String ip, long nowMillis) {
         if (ip == null || bypass.contains(ip)) {
             return false;
+        }
+        if (stickyCollapsed.contains(ip)) {
+            return true; // já colapsado antes: não confia no IP p/ sessão mesmo que a janela tenha esvaziado
         }
         Set<String> nicks = new HashSet<>();
         for (Entry e : window) {

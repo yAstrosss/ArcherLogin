@@ -117,14 +117,15 @@ class CollapsedIpDetectorTest {
     }
 
     @Test
-    void isCollapsedFalseAfterWindowExpires() {
+    void isCollapsedStickyAfterWindowExpires() {
         det = make(Set.of());
         for (int i = 0; i < THRESHOLD; i++) {
             det.observe("5.5.5.5", "user" + i, 1_000L);
         }
         assertTrue(det.isCollapsed("5.5.5.5", 1_000L));
-        // Fora da janela: entradas expiraram do ponto de vista do "agora" consultado.
-        assertFalse(det.isCollapsed("5.5.5.5", 1_000L + WINDOW + 1));
+        // STICKY: um IP que já cruzou o limiar continua colapsado mesmo após a janela esvaziar.
+        // Fecha o furo onde um vale de tráfego reabriria o auto-login por sessão (SEC#2).
+        assertTrue(det.isCollapsed("5.5.5.5", 1_000L + WINDOW + 1));
     }
 
     @Test
