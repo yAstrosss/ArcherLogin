@@ -92,6 +92,16 @@ ip-limit-enabled=true
 ip-limit-max-accounts=3
 ip-limit-bypass=127.0.0.1               # comma-separated list; IPs exempt from the limit
 
+# --- Session (IP-based cracked auto-login) ---
+session.enabled=true                    # skip the login prompt on reconnect from the same IP
+session.ttl-minutes=30                  # lifetime from login (1..1440); fixed, not sliding
+# Behind TCPShield/HAProxy/Cloudflare WITHOUT proxy-protocol every player collapses to one
+# frontend IP. ArcherLogin detects this ("IP collapsed" warning) and permanently disables
+# session auto-login for that IP until the proxy restarts (fail-closed: those players just fall
+# back to /login, nothing is bypassed). Fix the root cause: enable proxy-protocol in velocity.toml
+# AND on the frontend. A legitimate shared IP (CGNAT / LAN) that trips the 8-distinct-nicks-in-60s
+# threshold is gated the same way until restart; add it to ip-limit-bypass if that is expected.
+
 # --- Auth pool ---
 auth-queue-capacity=128                 # bounded queue; full = "busy" (anti-DoS)
 
