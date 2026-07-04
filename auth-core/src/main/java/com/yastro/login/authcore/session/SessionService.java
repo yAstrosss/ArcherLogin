@@ -10,6 +10,8 @@ import java.util.function.LongSupplier;
  */
 public final class SessionService {
 
+    private static final System.Logger LOG = System.getLogger("ArcherLogin-Session");
+
     private final SessionStorage storage; // pode ser null (banco fora)
     private final LongSupplier clock;
     private final boolean enabled;
@@ -64,7 +66,12 @@ public final class SessionService {
         }
         try {
             storage.deleteSession(nameLower);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            // NÃO engolir em silêncio: se o DELETE falhar (pool saturado / DB instável) a sessão
+            // SOBREVIVE ao /logout e ainda auto-loga até o TTL. Operador precisa enxergar.
+            LOG.log(System.Logger.Level.WARNING,
+                    "revoke de sessão FALHOU para " + nameLower
+                            + ": a sessão pode sobreviver até o TTL (logout não removeu do banco).", e);
         }
     }
 }
