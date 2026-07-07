@@ -6,7 +6,7 @@ state of the plugin, with trade-offs and limitations stated openly.
 - **Target:** Minecraft (Java 21), Velocity proxy (3.5.0-SNAPSHOT) + LimboAPI.
 - **Architecture:** **proxy-centric**. All authentication lives on the proxy + virtual
   limbo; the backends run **with no auth plugin**, in `online-mode=false`.
-- **State:** cracked auth (password register/login in the limbo), premium auto-login
+- **State:** password auth (register/login in the limbo), premium auto-login
   via Velocity's Mojang handshake, per-IP + per-account lockout, per-IP limit,
   e-mail recovery/linking, and forensic logging are **implemented**. Items in
   §7 are declared roadmap.
@@ -54,7 +54,7 @@ It rests on facts the client does not control:
    as a paid account (`MojangClient` -> `PREMIUM`). Anyone using that name without owning the
    account fails the handshake and is dropped by Mojang itself (`Invalid session`).
 
-There is no client-controllable channel that grants privilege: premium/cracked routing
+There is no client-controllable channel that grants privilege: premium/password routing
 is decided by the handshake result + the UUID version signed by modern forwarding,
 not by anything the client sends.
 
@@ -149,7 +149,7 @@ admin's name while verification is blind.
   authenticate (`ServerPreConnectEvent`). There is no lock based on gameplay events, the
   player simply never reaches the game server before logging in.
 - **Dependency fail-closed:** without LimboAPI the plugin **does not enable** (better not
-  to start than to let everyone in without auth). With the limbo unavailable, cracked
+  to start than to let everyone in without auth). With the limbo unavailable, password
   connections are **disconnected**, not let through.
 - **SQL:** 100% `PreparedStatement`, off the proxy thread. SQLite (file
   `database/accounts.db`, single backend) or MySQL/MariaDB via a HikariCP pool (multiple backends).

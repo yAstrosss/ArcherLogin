@@ -92,7 +92,7 @@ ip-limit-enabled=true
 ip-limit-max-accounts=3
 ip-limit-bypass=127.0.0.1               # comma-separated list; IPs exempt from the limit
 
-# --- Session (IP-based cracked auto-login) ---
+# --- Session (IP-based password auto-login) ---
 session.enabled=true                    # skip the login prompt on reconnect from the same IP
 session.ttl-minutes=30                  # lifetime from login (1..1440); fixed, not sliding
 # Behind TCPShield/HAProxy/Cloudflare WITHOUT proxy-protocol every player collapses to one
@@ -193,7 +193,7 @@ connecting straight to the backend. Do not skip it.
    não encontrado` (a literal log string the plugin emits), go back to section 1.
 2. A **premium** account (official launcher): joins **without a password** (auto-login
    via the Mojang handshake) and goes to `lobby-server`.
-3. A **cracked** account: lands in the limbo and uses `/register <password> <password>`,
+3. A **password** account: lands in the limbo and uses `/register <password> <password>`,
    then `/login <password>`.
 
 ---
@@ -289,6 +289,6 @@ FROM authme;
 ```
 
 Notes:
-- The `uuid` column can be left empty (`''`); ArcherLogin does not key on it for cracked accounts.
+- The `uuid` column can be left empty (`''`); ArcherLogin does not key on it for password accounts.
 - Non-ASCII passwords hashed by an AuthMe host with a non-UTF-8 default charset may not verify (rare). ASCII passwords always migrate.
 - Set `legacy-import.enabled=false` in config to disable legacy verification once migration has settled.

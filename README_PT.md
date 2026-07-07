@@ -12,7 +12,7 @@ backend.
 
 ## Por que ele existe
 
-Redes que aceitam jogadores offline rodam os backends em `online-mode=false`. Nesse
+Redes que aceitam jogadores sem conta Mojang rodam os backends em `online-mode=false`. Nesse
 modo o servidor não verifica ninguém com a Mojang, então qualquer um pode entrar com
 o nick de outra pessoa, inclusive de administradores. O ArcherLogin fecha essa
 brecha no proxy.
@@ -22,12 +22,12 @@ brecha no proxy.
 - **Um único plugin, no proxy Velocity.** Os backends **não** têm plugin de auth e
   rodam em `online-mode=false`.
 - O jogador não-autenticado fica num **limbo virtual** ([LimboAPI](https://github.com/Elytrium/LimboAPI),
-  Elytrium) e só é roteado para um backend real **depois** de logar. Pirata nem
-  chega a tocar no servidor de jogo antes de provar identidade.
+  Elytrium) e só é roteado para um backend real **depois** de logar. Uma conta com senha
+  nem chega a tocar no servidor de jogo antes de provar identidade.
 - **Conta original (paga):** auto-login via `forceOnlineMode` do Velocity, o
   handshake da Mojang prova a posse da conta no proxy. Quem entra com nick de um
   original sem ter a conta é derrubado **no handshake**, antes de virar player.
-- **Conta pirata (offline):** registro/login por senha, digitados **dentro do
+- **Conta com senha:** registro/login por senha, digitados **dentro do
   limbo**, nunca passam pelo chat nem pelo console do backend.
 
 > **A barreira nº 1 é o firewall do backend.** Como os backends rodam offline, a
@@ -56,7 +56,7 @@ brecha no proxy.
 
 ## Funções
 
-- Registro/login por senha para contas offline, dentro do limbo.
+- Registro/login por senha, dentro do limbo.
 - **Auto-login de originais** via `forceOnlineMode` do Velocity.
 - **Recuperação de senha por e-mail** e **vínculo de e-mail** (SMTP, opcional).
 - **Limite de contas por IP** e **lockout anti-bruteforce** (por IP + por conta).
@@ -105,7 +105,7 @@ Saída: `proxy/build/libs/yAstroLogin.jar` -> plugin Velocity.
    firewall** para tudo que não seja o proxy (passo crítico, veja SECURITY.md).
 5. Inicie o proxy. A config (`plugins/archerlogin/config.properties`) e o banco
    SQLite (em `plugins/archerlogin/database/`) são criados sozinhos.
-6. Conta original (launcher oficial) entra sem senha. Conta pirata usa
+6. Conta original (launcher oficial) entra sem senha. Uma conta com senha usa
    `/register <senha> <senha>` no limbo.
 
 Passo a passo completo e todas as chaves de config em [SETUP.md](SETUP.md).

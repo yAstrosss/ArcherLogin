@@ -17,7 +17,7 @@ body:
       label: Steps to reproduce
       description: The exact steps, in order.
       placeholder: |
-        1. Join the proxy as a cracked account.
+        1. Join the proxy as a password account.
         2. /register <pass> <pass>
         3. Disconnect and rejoin.
         4. Prompted to register again instead of login.

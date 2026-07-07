@@ -7,8 +7,8 @@ authentication happens on the proxy, before the player ever touches a backend.
 
 ## Why it exists
 
-Networks that accept offline players run their backends with `online-mode=false`. In
-that mode the server doesn't verify anyone with Mojang, so anyone can join using
+Networks that accept players without a Mojang account run their backends with
+`online-mode=false`. In that mode the server doesn't verify anyone with Mojang, so anyone can join using
 someone else's name, including admins. ArcherLogin closes that gap on the proxy.
 
 ## Architecture (proxy-centric)
@@ -17,12 +17,12 @@ someone else's name, including admins. ArcherLogin closes that gap on the proxy.
   with `online-mode=false`.
 - An unauthenticated player sits in a **virtual limbo**
   ([LimboAPI](https://github.com/Elytrium/LimboAPI), Elytrium) and is only routed to a
-  real backend **after** logging in. A cracked player never touches the game server
+  real backend **after** logging in. A password player never touches the game server
   before proving identity.
 - **Premium (paid account):** auto-login via Velocity's `forceOnlineMode`, the Mojang
   handshake proves account ownership on the proxy. Anyone joining with a premium name
   without owning the account is rejected **at the handshake**, before becoming a player.
-- **Cracked (offline):** password register/login, typed **inside the limbo**, they
+- **Password account:** register/login by password, typed **inside the limbo**, they
   never pass through the backend chat or console.
 
 
@@ -46,7 +46,7 @@ someone else's name, including admins. ArcherLogin closes that gap on the proxy.
 
 ## Features
 
-- Password register/login for offline accounts, inside the limbo.
+- Password register/login inside the limbo.
 - **Premium auto-login** via Velocity `forceOnlineMode`.
 - **E-mail password recovery** and **e-mail linking** (SMTP, optional).
 - **Per-IP account limit** and **anti-bruteforce lockout** (per IP + per account).
@@ -96,7 +96,7 @@ Output: `proxy/build/libs/yAstroLogin.jar` -> Velocity plugin.
    firewall** to anything but the proxy (critical step, see SECURITY.md).
 5. Start the proxy. The config (`plugins/archerlogin/config.properties`) and the SQLite
    database (under `plugins/archerlogin/database/`) are created automatically.
-6. A premium account (official launcher) joins without a password. A cracked player
+6. A premium account (official launcher) joins without a password. A password player
    uses `/register <pass> <pass>` in the limbo.
 
 Full walkthrough and every config key in [SETUP.md](SETUP.md).
