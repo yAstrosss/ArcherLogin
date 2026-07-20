@@ -1,8 +1,5 @@
 # ArcherLogin, Security model
 
-A document for independent review (human or AI). It describes the **current**
-state of the plugin, with trade-offs and limitations stated openly.
-
 - **Target:** Minecraft (Java 21), Velocity proxy (3.5.0-SNAPSHOT) + LimboAPI.
 - **Architecture:** **proxy-centric**. All authentication lives on the proxy + virtual
   limbo; the backends run **with no auth plugin**, in `online-mode=false`.
