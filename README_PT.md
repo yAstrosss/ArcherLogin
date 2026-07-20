@@ -6,10 +6,6 @@ backend.
 
 > English version: [README.md](README.md)
 
-> O nome do produto é **ArcherLogin**. O pacote Java (`com.yastro.login`), a tabela
-> (`yastrologin_accounts`) e o jar (`yAstroLogin.jar`) mantêm o nome interno antigo
-> de propósito, renomear quebraria bancos e instalações existentes.
-
 ## Por que ele existe
 
 Redes que aceitam jogadores sem conta Mojang rodam os backends em `online-mode=false`. Nesse
