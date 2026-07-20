@@ -26,12 +26,6 @@ brecha no proxy.
 - **Conta com senha:** registro/login por senha, digitados **dentro do
   limbo**, nunca passam pelo chat nem pelo console do backend.
 
-> **A barreira nº 1 é o firewall do backend.** Como os backends rodam offline, a
-> porta deles **precisa** ser inalcançável da internet (firewall ou bind em rede
-> privada), é a **única** defesa contra quem conecta direto no backend pulando o
-> proxy (quem furar isso entra com qualquer nick). Veja [SECURITY.md](SECURITY.md) e
-> [SETUP.md](SETUP.md).
-
 ## Destaques de segurança
 
 | Recurso | ArcherLogin |
