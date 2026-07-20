@@ -4,10 +4,6 @@ ArcherLogin is **proxy-centric**: the jar runs **only on the Velocity proxy**. T
 backends (Paper/etc.) get **no** auth plugin and run with `online-mode=false`. All
 authentication happens on the proxy + virtual limbo (LimboAPI).
 
-> **Before anything else:** the **backend firewall** step (section 4) is not optional.
-> Without it, anyone can connect straight to the offline backend and join with any name.
-> Read [SECURITY.md](SECURITY.md) too.
-
 ---
 
 ## 0. Build
@@ -171,18 +167,6 @@ No backend gets an auth plugin. On each backend:
       online-mode: true
       secret: 'PASTE_THE_CONTENTS_OF_forwarding.secret_HERE'
   ```
-
-### Firewall (the number-one barrier)
-
-The backend runs offline, so anyone who connects to it **directly** (bypassing the proxy)
-joins with **any name**, no password. **This is the only barrier against that:**
-
-- **Block the backend port in the firewall** for every IP that is not the proxy, and/or
-- **Bind the backend to a private network** (`server-ip` on an internal LAN, or loopback
-  if the proxy is on the same host).
-
-Without this step, everything else (Argon2id, throttle, fail-closed) is bypassable by
-connecting straight to the backend. Do not skip it.
 
 ---
 
