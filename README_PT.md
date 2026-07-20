@@ -119,13 +119,6 @@ plugins/archerlogin/
 Vindo de uma versão antiga (arquivos soltos na raiz)? A migração para `database/` e
 `logs/` é **automática e sem perda** no primeiro boot da 1.8.1.
 
-## Segurança e limitações honestas
-
-Leia [SECURITY.md](SECURITY.md): modelo de ameaças (proxy-cêntrico), o que o plugin
-protege, os requisitos de deploy obrigatórios (firewall do backend, secret fora do
-git, permissão do config) e o que **ainda não** está no escopo (sessão persistente, Bedrock/Floodgate,
-2FA, multi-proxy, roadmap).
-
 ## Licença
 
 ArcherLogin é software livre sob a **[GNU GPL v3](LICENSE)**.
