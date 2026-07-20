@@ -10,38 +10,7 @@
 
 ---
 
-## 1. Threat model and barrier #1: the backend firewall
-
-The backend runs in `online-mode=false`, it verifies no one. Identity is
-established **on the proxy**:
-
-- The proxy resolves the name against Mojang and applies `forceOnlineMode`/`forceOfflineMode` at
-  PreLogin.
-- The backend trusts the proxy via **modern forwarding** (`player-info-forwarding-mode =
-  "modern"`) with the same `forwarding-secret` on both sides. A connection without valid
-  forwarding is refused by the backend.
-
-**Mandatory assumption (not optional):** the backend port **must only be
-reachable by the proxy**. Modern forwarding's HMAC (signed with the `forwarding-secret`)
-**is** a real cryptographic gate — a direct connection that cannot produce a valid
-signature is refused by the backend — but it is a **shared-secret** gate that **fails
-open**: if the secret leaks (git, logs, backups, a compromised plugin) or a backend does
-not enforce modern forwarding, anyone who can reach the port joins as **any name**, with no
-password and no Mojang check. The firewall is the barrier that does **not** depend on the
-secret staying secret, which is why it ranks first. Run **both**: the secret gates the
-proxy→backend channel, the firewall makes a leaked secret useless to an outside attacker.
-
-- **Block the backend port at the firewall** for every IP that is not the proxy's,
-  and/or **bind the backend on a private network** (`server-ip` on an internal LAN / loopback
-  with the proxy on the same host).
-- Keep the `forwarding-secret` **out of git** and with restricted permissions. A leaked
-  secret + an exposed port = anyone can forge the origin.
-
-> If you can only guarantee one thing in this deploy, guarantee **this one**. Argon2id,
-> throttling and Mojang fail-closed protect the login flow; none of that protects an
-> offline backend whose port is open to the internet.
-
-## 2. The basis for "who is premium"
+## 1. The basis for "who is premium"
 
 It rests on facts the client does not control:
 
@@ -60,7 +29,7 @@ not by anything the client sends.
 > player's name). The plugin logs a WARN at boot. Leave it `false` unless you know what
 > you are doing.
 
-## 3. Password hashing
+## 2. Password hashing
 
 - **Argon2id** (BouncyCastle, pure Java), default `m=19456 KiB, t=2, p=1`
   (OWASP baseline). Parameters are configurable and **clamped**: the floor is the baseline
@@ -77,7 +46,7 @@ not by anything the client sends.
 - Password limited to **72 bytes** (bcrypt's limit) with a clear message. Verification is
   done in **constant time**.
 
-## 4. Impersonation via Mojang rate-limit, fail-closed
+## 3. Impersonation via Mojang rate-limit, fail-closed
 
 An attacker could flood the proxy to induce an HTTP 429 from Mojang and register an
 admin's name while verification is blind.
@@ -94,7 +63,7 @@ admin's name while verification is blind.
 > prioritizes availability uses `unknown-policy=offline` (which protects only
 > already-seen names via the persistent registry).
 
-## 5. DoS, brute-force and lockout griefing
+## 4. DoS, brute-force and lockout griefing
 
 - **Login DoS:** **bounded** hash pool + bounded queue (`auth-queue-capacity`)
   with `AbortPolicy`, when the queue is full -> the handler answers "busy" instead of letting
@@ -121,7 +90,7 @@ admin's name while verification is blind.
 > someone on a new IP during an active attack. `password-min-length` + the Argon2id cost
 > remain as a background barrier.
 
-## 6. Other properties
+## 5. Other properties
 
 - **Password does not leak in the normal flow:** register/login are typed **inside the
   virtual limbo** and captured by LimboAPI's `onChat`, they do not pass through the Velocity
@@ -151,7 +120,7 @@ admin's name while verification is blind.
 - **SQL:** 100% `PreparedStatement`, off the proxy thread. SQLite (file
   `database/accounts.db`, single backend) or MySQL/MariaDB via a HikariCP pool (multiple backends).
 
-## 7. Known limitations / roadmap (declared, not hidden)
+## 6. Known limitations / roadmap (declared, not hidden)
 
 - **Persistent session ("stay logged in"):** **not implemented.** Today the "authenticated"
   state lives **in proxy memory** (per connection): while connected, switching backends never
@@ -175,24 +144,6 @@ admin's name while verification is blind.
 - **Live reload:** there is no reload command, config changes (incl. pool size and
   database) require a **proxy restart**.
 
-## 8. Checklist for the reviewer
-
-- [ ] Does auto-login rely only on the Mojang handshake + the forwarding-signed UUID? (yes)
-- [ ] Does any client channel/input grant privilege? (no)
-- [ ] Does a Mojang 429/error downgrade a premium name (even one never seen)? (no, with `deny`; already-seen is protected even with `offline`)
-- [ ] Does name-based lockout allow griefing? (no; per IP + per account WITH an exemption for the victim's good IP)
-- [ ] Is the offline backend protected from direct connection? (by modern-forwarding HMAC — a shared secret that fails open if leaked/misconfigured — **plus** the firewall/private bind, which does not depend on the secret; a deploy requirement, §1)
-- [ ] Does the password leak in the normal flow (limbo)? (no; captured by onChat, outside the command pipeline)
-- [ ] Does a password typed by mistake on a backend leak in the log? (no; args masked by the proxy)
-- [ ] Does the admin password leak as an argument? (no; `/passadmin` only from the proxy console)
-- [ ] Does the hash run on the proxy thread? (no; bounded pool, result back on the session)
-- [ ] Does peak RAM scale with the number of players? (no; with cores x memory-kib)
-- [ ] Can the config weaken the hash below the OWASP baseline? (no; floor clamped at 19456 KiB)
-- [ ] Is imported bcrypt migrated to Argon2id? (yes, at login)
-- [ ] Is SQL parameterized and off the proxy thread? (yes)
-- [ ] Without LimboAPI does the plugin let everyone in? (no; it does not enable, fail-safe)
-- [ ] Does the "stay logged in" session survive a restart/reconnect? (**no**; in memory, §7; cookie tested and not viable)
-- [ ] Are the limitations and roadmap explicit? (§7)
 
 ---
 
